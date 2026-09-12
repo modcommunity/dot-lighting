@@ -1,4 +1,4 @@
-This is the **lighting** asset for TMC's **Dot** collection. It adds a world's lighting as a *document* rather than as a scene: a sun, an ambient colour, fog, a sky name and the post-processing that goes with them, read from data a map file or a content pack can carry, with quality profiles so the same world reads the same way on a desktop and in a browser.
+This is the **lighting** asset for TMC's **Dot** collection. It adds a world's lighting as a *document* rather than as a scene: a sun, an ambient colour, fog, a procedural sky built from the world's own numbers, and the post-processing that goes with them, read from data a map file or a content pack can carry, with quality profiles so the same world reads the same way on a desktop and in a browser.
 
 This collection of assets provides modular building blocks for creating games and applications within the TMC ecosystem, ensuring consistency and interoperability across all `dot-*` assets. This includes core functionality, networking, authentication, cloud integration, and more.
 
@@ -65,5 +65,5 @@ A lighting rig belongs to a world. A process running a server and a client, or h
 
 ```bash
 godot --headless --path . --import
-godot --headless --path . res://examples/lighting_selftest.tscn   # 52 checks
+godot --headless --path . res://examples/lighting_selftest.tscn   # 55 checks
 ```

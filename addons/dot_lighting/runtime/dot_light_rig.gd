@@ -113,8 +113,12 @@ static func environment(
 	# has a visible seam along every horizon.[/b] Fog is what distance fades INTO, so the
 	# colour it fades into and the colour past the last surface have to be the same one.
 	var horizon := doc.fog_colour if doc.fog_enabled else Color(0.55, 0.65, 0.80)
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = horizon
+	if profile.sky:
+		env.background_mode = Environment.BG_SKY
+		env.sky = _sky(doc, horizon)
+	else:
+		env.background_mode = Environment.BG_COLOR
+		env.background_color = horizon
 
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = doc.ambient_colour
@@ -143,11 +147,60 @@ static func environment(
 		var start := maxf(doc.fog_start, 0.0)
 		env.fog_depth_begin = metres(start)
 		env.fog_depth_end = metres(maxf(doc.fog_end, start + 1.0))
-		env.fog_density = 1.0
+		# [b]The document's own maximum, not 1.0.[/b] A source world says how opaque its
+		# fog is allowed to get and it is not always "completely": a world that says 0.4
+		# wants distance tinted, not erased, and forcing the full density deletes
+		# everything past the far plane of the fog instead of hazing it.
+		env.fog_density = clampf(doc.fog_max_density, 0.0, 1.0)
 		env.fog_depth_curve = 1.0
+		# Fog over the sky as well would flatten the one thing that is meant to be behind
+		# everything, and the sky is already the colour the fog fades into.
+		env.fog_sky_affect = 0.0
 
 	node.environment = env
 	return node
+
+
+## A sky from what the world said about its own light.
+##
+## [b]The world named a sky and we cannot have it, so this is built from its numbers
+## instead.[/b] [member DotLightDocument.sky_name] is a texture set inside the game the
+## world was authored for; it is not in the file and copying it would be taking that
+## game's art. Everything needed to draw a convincing stand-in IS in the file, because
+## the same compiler that baked the lightmap was told the sun's angle and colour and the
+## colour the distance fades to.
+##
+## So: the fog colour is the horizon, because fog is what distance fades INTO and a
+## horizon that is any other colour draws a seam along every ridge. The top is the
+## world's own ambient — which in a source world is literally the colour of its sky,
+## since that is what the ambient term was measured from. The ground half is dark and
+## near-neutral rather than a second bright band: below the horizon of an enclosed level
+## there is geometry, and on the rare occasion there is not, a bright floor-coloured
+## band under a cliff edge reads as a hole.
+static func _sky(doc: DotLightDocument, horizon: Color) -> Sky:
+	var mat := ProceduralSkyMaterial.new()
+	mat.sky_horizon_color = horizon
+	mat.sky_top_color = doc.ambient_colour if doc.has_ambient else horizon.darkened(0.3)
+	mat.sky_energy_multiplier = 1.0
+	mat.ground_horizon_color = horizon
+	mat.ground_bottom_color = horizon.darkened(0.7)
+	mat.ground_energy_multiplier = 1.0
+	# A disc only where there is a sun to put one. `sun_angle_max` is its angular size and
+	# `sun_curve` its falloff; these are a small bright sun rather than the default's wide
+	# soft one, because a baked world's shadows all have one hard direction and a diffuse
+	# disc in the sky disagrees with every one of them.
+	if doc.has_sun:
+		mat.sun_angle_max = 3.0
+		mat.sun_curve = 0.12
+	else:
+		mat.sun_angle_max = 0.0
+	var sky := Sky.new()
+	sky.sky_material = mat
+	# The sky is static: the sun does not move and neither does anything else in it, so
+	# the radiance map is generated once rather than per frame.
+	sky.process_mode = Sky.PROCESS_MODE_QUALITY
+	sky.radiance_size = Sky.RADIANCE_SIZE_128
+	return sky
 
 
 ## The family's one unit boundary, and the only place this addon crosses it.

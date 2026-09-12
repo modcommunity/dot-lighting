@@ -34,6 +34,20 @@ extends Resource
 
 @export var fog: bool = true
 
+## Draw a sky behind the world, rather than a flat colour.
+##
+## [b]On everywhere, because the flat colour is not cheaper in any way that matters.[/b]
+## A procedural sky is one shader over the pixels no geometry covered, which in an
+## enclosed level is almost none of them; the flat background it replaces still had to
+## fill those same pixels. What it buys is that the brightest thing in an outdoor frame
+## stops being a single flat rectangle with a hard edge along every ridge line.
+##
+## It is NOT the sky the source world named — see [member DotLightDocument.sky_name],
+## which is a texture set that lives in that world's own game and was never inside the
+## file. This is the sky that world's own numbers describe: its sun, at its angle, in
+## its colour, over its fog.
+@export var sky: bool = true
+
 ## Shadows cost a depth pass per light and are the first thing a weak machine should lose.
 @export var sun_shadows: bool = true
 

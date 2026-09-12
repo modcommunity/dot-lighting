@@ -11,7 +11,7 @@ extends Node3D
 ## failure this family has shipped more than once.
 
 const EXPECTED_SECTIONS := 6
-const EXPECTED_CHECKS := 52
+const EXPECTED_CHECKS := 55
 
 var _passed := 0
 var _failed := 0
@@ -104,7 +104,8 @@ func _round_trip() -> void:
 	var before := DotLightDocument.from_dictionary({
 		"sun": {"pitch_src": -69.0, "yaw_src": 111.0, "colour": [0.97, 0.91, 0.83],
 			"brightness": 32.0, "spread_degrees": 12.0},
-		"fog": {"enabled": true, "colour": [0.09, 0.66, 0.86], "start": 0.0, "end": 8536.0},
+		"fog": {"enabled": true, "colour": [0.09, 0.66, 0.86], "start": 0.0, "end": 8536.0,
+			"max_density": 0.4},
 		"sky_name": "reef",
 		"baked_light_count": 74,
 	})
@@ -115,6 +116,8 @@ func _round_trip() -> void:
 	_check(is_equal_approx(after.sun_brightness, 32.0), "and the brightness")
 	_check(is_equal_approx(after.sun_spread, 12.0), "and the sun's spread")
 	_check(after.fog_enabled and is_equal_approx(after.fog_end, 8536.0), "and the fog")
+	_check(is_equal_approx(after.fog_max_density, 0.4),
+		"and how dense that fog is allowed to get, which is not always all the way")
 	_check(after.sky_name == "reef", "and the sky name")
 	_check(after.baked_light_count == 74, "and the baked light count")
 
@@ -210,8 +213,16 @@ func _rig() -> void:
 	_check(env.glow_hdr_threshold < 1.0,
 		"and a threshold under 1.0, or a baked world would never bloom at all")
 	_check(env.fog_enabled, "and fog")
-	_check(env.background_color.is_equal_approx(env.fog_light_color),
-		"whose colour is also the background, or the horizon has a seam in it")
+	# The same invariant the flat background used to carry, moved to where the horizon
+	# now is. A sky whose horizon is not the colour the fog fades into draws a visible
+	# line along every ridge in the world, which is the whole reason either is tied to
+	# the other.
+	var sky_mat := env.sky.sky_material as ProceduralSkyMaterial
+	_check(env.background_mode == Environment.BG_SKY and sky_mat != null,
+		"drawn against a sky rather than a flat colour")
+	_check(sky_mat != null and sky_mat.sky_horizon_color.is_equal_approx(env.fog_light_color),
+		"whose horizon is the fog colour, or the horizon has a seam in it")
+	_check(env.fog_sky_affect == 0.0, "and the fog does not also fog the sky")
 	_check(env.fog_depth_end > env.fog_depth_begin, "and a range that goes forwards")
 
 	# A negative start means "from the camera" in a source world and is not the same

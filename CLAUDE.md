@@ -28,13 +28,13 @@ A baked world's surfaces are unshaded — the lightmap *is* their lighting — s
 
 ```bash
 godot --headless --path . --import
-godot --headless --path . res://examples/lighting_selftest.tscn   # 52 checks
+godot --headless --path . res://examples/lighting_selftest.tscn   # 55 checks
 ```
 
 The suite counts **sections that ran to their last line** as well as a total check count, because a script error inside a section aborts that section and not the run, and the section counter is satisfied by one that had already announced itself. A suite reporting "0 failed" with checks missing is a failure this family has shipped more than once.
 
 ## Not here yet
 
-- **A sky.** `sky_name` is carried and nothing draws one; the background is a flat colour matched to the fog. A converted world's sky is a second content problem — the image has to come from somewhere — and a colour that agrees with the fog is a better placeholder than a mismatched gradient, because a horizon with a seam in it reads as a bug and a flat one reads as a style.
+- **The sky a converted world NAMED.** `sky_name` is carried and is not what gets drawn: it names a texture set that lives inside the game that world was authored for, is not in the file, and is not ours to copy. What is drawn instead is a procedural sky built from the world's own numbers — its fog colour as the horizon, its ambient as the top, its sun at its own angle — which is the same trick the rest of this addon plays: everything needed was already in the file, because the compiler that baked the lightmap had to be told all of it.
 - **Point and spot lights.** `baked_light_count` says how many a world compiled into its lightmap precisely so that nobody places them again and lights it twice. A world that wants *dynamic* lights wants a different field, and no consumer has asked for one.
 - **Light probes and reflection.** The sheen on a wet or polished surface is a cubemap, and that is a material property rather than a world one.

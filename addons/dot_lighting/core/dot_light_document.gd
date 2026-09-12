@@ -55,6 +55,14 @@ var fog_colour: Color = Color(0.6, 0.7, 0.8)
 var fog_start: float = 0.0
 var fog_end: float = 0.0
 
+## How opaque the fog is allowed to become at [member fog_end], 0..1.
+##
+## [b]A real number the source world sets, and "1.0" is a default rather than the rule.[/b]
+## A world that says 0.4 wants its distance tinted; a consumer that assumes full density
+## erases everything past the fog's far plane instead of hazing it, which on a large open
+## level deletes the half of the map you are about to ride into.
+var fog_max_density: float = 1.0
+
 ## The name of the sky the source world used. Carried for a consumer that has one.
 var sky_name: String = ""
 
@@ -93,6 +101,7 @@ static func from_dictionary(data: Dictionary) -> DotLightDocument:
 		doc.fog_colour = _colour(fog.get("colour", []), doc.fog_colour)
 		doc.fog_start = float(fog.get("start", 0.0))
 		doc.fog_end = float(fog.get("end", 0.0))
+		doc.fog_max_density = clampf(float(fog.get("max_density", 1.0)), 0.0, 1.0)
 
 	doc.sky_name = str(data.get("sky_name", ""))
 	doc.baked_light_count = int(data.get("baked_light_count", 0))
@@ -119,6 +128,7 @@ func to_dictionary() -> Dictionary:
 			"colour": [fog_colour.r, fog_colour.g, fog_colour.b],
 			"start": fog_start,
 			"end": fog_end,
+			"max_density": fog_max_density,
 		}
 	if not sky_name.is_empty():
 		out["sky_name"] = sky_name
