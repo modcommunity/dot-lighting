@@ -11,6 +11,8 @@ extends Node3D
 ## [b]The node is not the lighting.[/b] It makes the lighting and steps out of the way, so
 ## nothing in a scene holds a reference to something a map change is about to replace.
 
+const CHANNEL := "lighting"
+
 ## A JSON file holding a lighting document. Overrides the exports below when it loads.
 @export_file("*.json") var document_path: String = ""
 
@@ -52,7 +54,15 @@ func document() -> DotLightDocument:
 		var parsed: Variant = JSON.parse_string(text)
 		if typeof(parsed) == TYPE_DICTIONARY:
 			return DotLightDocument.from_dictionary(parsed)
-		push_warning("DotLightZone: %s is not a lighting document" % document_path)
+		# DotLog, not push_warning: this is a runtime condition about content, not a
+		# programmer error, and push_warning drags an engine backtrace into a log where
+		# the interesting fact is the path. It also means a server shipping its log
+		# somewhere actually sees this one.
+		DotLog.warn(
+			CHANNEL,
+			"the lighting document would not parse; using the exported defaults",
+			{"path": document_path}
+		)
 
 	var doc := DotLightDocument.new()
 	doc.has_sun = sun_enabled
