@@ -49,7 +49,7 @@ So the sun here lights the **characters**, the props and anything else with an o
 
 ## Three things that are easy to get wrong, and are handled here
 
-- **A brightness is not an energy.** Source-family worlds write the light's compiled intensity alongside its colour, and it ranges from 20 to 600 across eight ordinary maps. Handing that to `Light3D.light_energy` gives a sun six hundred times too bright on one map and twenty times on the next. It is carried unconverted in the document and curved against a reference by the rig, because what to do with 600 is a renderer's decision.
+- **A brightness is not an energy.** Worlds from the older BSP-family formats write the light's compiled intensity alongside its colour, and it ranges from 20 to 600 across eight ordinary maps. Handing that to `Light3D.light_energy` gives a sun six hundred times too bright on one map and twenty times on the next. It is carried unconverted in the document and curved against a reference by the rig, because what to do with 600 is a renderer's decision.
 - **A yaw in one handedness is not a yaw in the other.** Converting pitch and yaw separately between a Z-up left-handed world and Godot's Y-up right-handed one produces a sun that rises in the north, and nothing about the result looks wrong enough to question. `DotLightRig.sun_rotation` builds the direction in the source convention and swaps axes once, on the vector.
 - **A sun straight overhead has no `looking_at`.** It is parallel to the default up vector and a basis cannot be built from two parallel vectors. Worlds with an exactly vertical sun are ordinary, not a corner case, and the suite asserts the result is a number rather than a `NaN`.
 

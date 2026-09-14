@@ -64,7 +64,7 @@ static func apply(
 ## The rotation that points a [DirectionalLight3D] the way a Z-up world's sun points.
 ##
 ## [b]The conversion is on the DIRECTION and not on the angles, and that is the whole
-## reason this is a function.[/b] Source-family worlds are Z-up and left-handed and Godot
+## reason this is a function.[/b] The older BSP-family worlds are Z-up and left-handed and Godot
 ## is Y-up and right-handed; a yaw in one is not a yaw in the other, so converting pitch
 ## and yaw separately produces a sun that rises in the north and nothing about the result
 ## looks wrong enough to question. Build the vector in the source convention, swap axes
