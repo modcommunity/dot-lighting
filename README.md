@@ -67,3 +67,7 @@ A lighting rig belongs to a world. A process running a server and a client, or h
 godot --headless --path . --import
 godot --headless --path . res://examples/lighting_selftest.tscn   # 55 checks
 ```
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
