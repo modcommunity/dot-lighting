@@ -48,6 +48,15 @@ extends Resource
 ## its colour, over its fog.
 @export var sky: bool = true
 
+## The sky continues below the horizon, instead of turning into dark ground.
+##
+## [b]Off by default, because an enclosed level has geometry under its horizon[/b] and a
+## bright band there reads as a hole. On for a world that FLOATS inside its sky -- the
+## platforms-in-a-skybox shape every ride-the-ramp and jump-the-gap map is built in --
+## where the source world's sky surrounded the player on all sides and a dark lower half
+## turns every glance down between two platforms into looking at a floor that is not there.
+@export var sky_below_horizon: bool = false
+
 ## Shadows cost a depth pass per light and are the first thing a weak machine should lose.
 @export var sun_shadows: bool = true
 

@@ -11,7 +11,7 @@ extends Node3D
 ## failure this family has shipped more than once.
 
 const EXPECTED_SECTIONS := 6
-const EXPECTED_CHECKS := 55
+const EXPECTED_CHECKS := 57
 
 var _passed := 0
 var _failed := 0
@@ -233,6 +233,17 @@ func _rig() -> void:
 	_check(neg_node.environment.fog_depth_begin >= 0.0,
 		"a negative fog start is clamped rather than passed on")
 	neg_node.free()
+
+	# An enclosed level keeps a dark ground; a world floating in its sky does not.
+	_check(sky_mat != null and sky_mat.ground_bottom_color.get_luminance() < sky_mat.sky_horizon_color.get_luminance(),
+		"by default the sky's lower half is dark ground, for a level with a floor under its horizon")
+	var floating := DotLightProfile.high()
+	floating.sky_below_horizon = true
+	var float_node := DotLightRig.environment(doc, floating)
+	var float_sky := float_node.environment.sky.sky_material as ProceduralSkyMaterial
+	_check(float_sky != null and float_sky.ground_bottom_color.is_equal_approx(float_sky.sky_top_color),
+		"and with sky_below_horizon the lower half mirrors the upper, for a world inside its skybox")
+	float_node.free()
 
 	var low_node := DotLightRig.environment(doc, DotLightProfile.low())
 	var low_env := low_node.environment

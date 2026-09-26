@@ -115,7 +115,7 @@ static func environment(
 	var horizon := doc.fog_colour if doc.fog_enabled else Color(0.55, 0.65, 0.80)
 	if profile.sky:
 		env.background_mode = Environment.BG_SKY
-		env.sky = _sky(doc, horizon)
+		env.sky = _sky(doc, horizon, profile.sky_below_horizon)
 	else:
 		env.background_mode = Environment.BG_COLOR
 		env.background_color = horizon
@@ -177,13 +177,15 @@ static func environment(
 ## near-neutral rather than a second bright band: below the horizon of an enclosed level
 ## there is geometry, and on the rare occasion there is not, a bright floor-coloured
 ## band under a cliff edge reads as a hole.
-static func _sky(doc: DotLightDocument, horizon: Color) -> Sky:
+static func _sky(doc: DotLightDocument, horizon: Color, below_horizon: bool = false) -> Sky:
 	var mat := ProceduralSkyMaterial.new()
 	mat.sky_horizon_color = horizon
 	mat.sky_top_color = doc.ambient_colour if doc.has_ambient else horizon.darkened(0.3)
 	mat.sky_energy_multiplier = 1.0
 	mat.ground_horizon_color = horizon
-	mat.ground_bottom_color = horizon.darkened(0.7)
+	# The lower half mirrors the upper when the world floats in its sky; see
+	# [member DotLightProfile.sky_below_horizon].
+	mat.ground_bottom_color = mat.sky_top_color if below_horizon else horizon.darkened(0.7)
 	mat.ground_energy_multiplier = 1.0
 	# A disc only where there is a sun to put one. `sun_angle_max` is its angular size and
 	# `sun_curve` its falloff; these are a small bright sun rather than the default's wide
