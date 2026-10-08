@@ -35,7 +35,7 @@ var sun_colour: Color = Color.WHITE
 
 ## What the source world's own light compiler was given.
 ##
-## [b]Not a multiplier and not a 0..1 fraction.[/b] Source's `light_environment` writes
+## [b]Not a multiplier and not a 0..1 fraction.[/b] A converted map's `light_environment` writes
 ## this as the fourth component of `_light` and it ranges from 20 to 600 across eight
 ## ordinary maps, so handing it to [member Light3D.light_energy] gives a sun six hundred
 ## times too bright on one map and twenty times on the next. It is carried as it stands
