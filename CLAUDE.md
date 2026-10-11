@@ -1,6 +1,6 @@
 # dot-lighting
 
-A world's lighting as a document rather than as a scene: `DotLightDocument` is a dictionary in and a dictionary out (sun, ambient, fog, sky, baked-light count), `DotLightRig` turns one into a sun and an `Environment`, and `DotLightProfile` says how much of it this machine draws. An imported map carries its lighting in its manifest and the game applies it; game-g2gfast is the consumer.
+A world's lighting as a document rather than as a scene: `DotLightDocument` is a dictionary in and a dictionary out (sun, ambient, fog, sky, baked-light count), `DotLightRig` turns one into a sun and an `Environment`, and `DotLightProfile` says how much of it this machine draws. An imported map carries its lighting in its manifest and the game applies it; game-g2gfast applies imported maps' lighting this way, and game-arena gives each built-in map a document of its own (2026-10-10).
 
 Read the family [CLAUDE.md](../../CLAUDE.md) first.
 
