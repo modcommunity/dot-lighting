@@ -173,14 +173,24 @@ static func environment(
 ## So: the fog colour is the horizon, because fog is what distance fades INTO and a
 ## horizon that is any other colour draws a seam along every ridge. The top is the
 ## world's own ambient — which in a source world is literally the colour of its sky,
-## since that is what the ambient term was measured from. The ground half is dark and
+## since that is what the ambient term was measured from — unless the document names a
+## [member DotLightDocument.sky_top] of its own, for a world whose ambient was chosen for
+## the shade and is paler than its sky. The ground half is dark and
 ## near-neutral rather than a second bright band: below the horizon of an enclosed level
 ## there is geometry, and on the rare occasion there is not, a bright floor-coloured
 ## band under a cliff edge reads as a hole.
 static func _sky(doc: DotLightDocument, horizon: Color, below_horizon: bool = false) -> Sky:
 	var mat := ProceduralSkyMaterial.new()
 	mat.sky_horizon_color = horizon
-	mat.sky_top_color = doc.ambient_colour if doc.has_ambient else horizon.darkened(0.3)
+	# sky_top first, then the ambient, then a darker horizon: each is the best statement of
+	# the zenith the document makes. The ambient LIGHT is untouched by sky_top
+	# ([method environment] sets it from the ambient alone); only what is drawn changes.
+	if doc.has_sky_top:
+		mat.sky_top_color = doc.sky_top
+	elif doc.has_ambient:
+		mat.sky_top_color = doc.ambient_colour
+	else:
+		mat.sky_top_color = horizon.darkened(0.3)
 	mat.sky_energy_multiplier = 1.0
 	mat.ground_horizon_color = horizon
 	# The lower half mirrors the upper when the world floats in its sky; see

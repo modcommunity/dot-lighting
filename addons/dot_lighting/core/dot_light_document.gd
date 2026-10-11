@@ -66,6 +66,21 @@ var fog_max_density: float = 1.0
 ## The name of the sky the source world used. Carried for a consumer that has one.
 var sky_name: String = ""
 
+## The colour of the top of the sky, when the world names one apart from its ambient.
+##
+## [b]Optional, and absent keeps the old sky exactly.[/b] Without it the rig draws the
+## zenith in [member ambient_colour], which is right for a converted world: its ambient
+## term was measured from its own sky, so the two are the same colour by construction. It
+## is wrong for a world whose ambient was CHOSEN for the shade. A bright blue sky then
+## forces a blue fill at the ambient's strength, and every shaded face turns navy and every
+## yellow surface olive; the only way to keep the shade pale was a pale grey sky. Naming
+## the zenith separately lets the two differ. Written as `"sky_top": [r, g, b]` at the top
+## level of the document, beside `sky_name`, because it describes the sky, not the sun.
+## [member has_sky_top] tells "no sky_top" from any colour, including black; the default
+## colour is a clear daytime blue only so that code setting the flag alone gets a sky.
+var sky_top: Color = Color(0.3, 0.56, 0.96)
+var has_sky_top: bool = false
+
 ## How many lights were compiled into the baked lighting.
 ##
 ## Not for placing: those lights are already in the lightmap and placing them again lights
@@ -104,6 +119,13 @@ static func from_dictionary(data: Dictionary) -> DotLightDocument:
 		doc.fog_max_density = clampf(float(fog.get("max_density", 1.0)), 0.0, 1.0)
 
 	doc.sky_name = str(data.get("sky_name", ""))
+	# Only a value that IS a colour counts. Anything else (a sky name written in the wrong
+	# key, a two-number array) is treated as absent rather than as the fallback colour, so a
+	# typo leaves today's sky instead of painting one nobody asked for.
+	var top: Variant = data.get("sky_top", null)
+	if (top is Array and (top as Array).size() >= 3) or top is Color:
+		doc.has_sky_top = true
+		doc.sky_top = _colour(top, doc.sky_top)
 	doc.baked_light_count = int(data.get("baked_light_count", 0))
 	return doc
 
@@ -132,6 +154,8 @@ func to_dictionary() -> Dictionary:
 		}
 	if not sky_name.is_empty():
 		out["sky_name"] = sky_name
+	if has_sky_top:
+		out["sky_top"] = [sky_top.r, sky_top.g, sky_top.b]
 	out["baked_light_count"] = baked_light_count
 	return out
 
@@ -157,6 +181,8 @@ func describe_lines() -> PackedStringArray:
 			% [fog_colour.to_html(false), int(fog_start), int(fog_end)])
 	else:
 		out.append("fog       off")
-	out.append("sky       %s" % (sky_name if not sky_name.is_empty() else "-"))
+	out.append("sky       %s, top %s" % [
+		sky_name if not sky_name.is_empty() else "-",
+		sky_top.to_html(false) if has_sky_top else "not named"])
 	out.append("baked     %d lights compiled into the lighting" % baked_light_count)
 	return out

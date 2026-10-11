@@ -10,10 +10,11 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first.
 
 | Path | What |
 | --- | --- |
-| `core/dot_light_document.gd` | `DotLightDocument`: what the world is; `from_dictionary`, `to_dictionary`, `has_sun`, `has_ambient`, `sky_name`, `baked_light_count` |
+| `core/dot_light_document.gd` | `DotLightDocument`: what the world is; `from_dictionary`, `to_dictionary`, `has_sun`, `has_ambient`, `sky_name`, `sky_top`/`has_sky_top`, `baked_light_count` |
 | `core/dot_light_profile.gd` | `DotLightProfile`: what this machine draws (tonemap, glow, fog, sky, shadows); `high()`, `low()`, `web()` |
 | `runtime/dot_light_rig.gd` | `DotLightRig`: `apply`, `environment`, the procedural sky, `METRES_PER_UNIT` and `metres()` |
 | `runtime/dot_light_zone.gd` | `DotLightZone`: the inspector half for a hand-built world; builds the lighting on `_ready` and steps aside |
+| `dot_lighting_api.gd` | the API level (`DotAddonApi`); bump `LEVEL` for anything a game could newly call, with a comment line saying what |
 | `examples/lighting_selftest.tscn` | the suite |
 
 Paths except `examples/` are in `addons/dot_lighting/`.
@@ -31,6 +32,7 @@ The family's two steps ([game-dev/CLAUDE.md](../../CLAUDE.md#validating-anything
 - **`METRES_PER_UNIT` (0.01905) is duplicated on purpose.** The same figure lives in game-g2gfast's `g2g_units.gd` and game-arena's `arena_bsp_map.gd`. The one-place rule is per project; this addon depends on dot-core alone, and importing a game's unit class to read a fog distance would be a dependency on the game. A caller with its own conversion passes metres in.
 - **The sun does not light a baked world's surfaces.** They are unshaded (the lightmap is their lighting), so the sun lights characters and props and the post-processing changes the world. "The sun does not seem to do anything" on a baked map is working as intended.
 - **`sky_name` is carried, never drawn.** It names a texture set inside the game the world was authored for, which is not ours to copy. The rig draws a procedural sky from the world's own numbers instead: fog colour as the horizon, ambient as the top, the sun at its own angle.
+- **`sky_top` is optional and absent draws the old sky exactly.** A converted world's ambient was measured from its sky, so the zenith in the ambient colour is right there; a world whose ambient was chosen for the shade names its zenith as a top-level `"sky_top": [r, g, b]`, and only what is drawn changes, never the ambient light. A malformed value is absent, not a default colour. The suite's `sky_top` section asserts both halves.
 - **`baked_light_count` exists so nobody places those lights again** and lights the world twice.
 
 ## Not here yet

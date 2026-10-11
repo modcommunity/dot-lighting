@@ -33,6 +33,12 @@ const CHANNEL := "lighting"
 @export_range(0.0, 100000.0, 1.0) var fog_start: float = 4000.0
 @export_range(0.0, 100000.0, 1.0) var fog_end: float = 20000.0
 
+@export_group("Sky")
+## Off draws the zenith in the ambient colour, as a document without `sky_top` does. On
+## for a world whose shade should be paler than its sky; see [member DotLightDocument.sky_top].
+@export var sky_top_enabled: bool = false
+@export var sky_top: Color = Color(0.3, 0.56, 0.96)
+
 ## The sun this built, or null before it entered the tree.
 var sun: DirectionalLight3D = null
 
@@ -76,6 +82,8 @@ func document() -> DotLightDocument:
 	doc.fog_colour = fog_colour
 	doc.fog_start = fog_start
 	doc.fog_end = fog_end
+	doc.has_sky_top = sky_top_enabled
+	doc.sky_top = sky_top
 	return doc
 
 

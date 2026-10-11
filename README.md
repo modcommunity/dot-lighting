@@ -53,6 +53,10 @@ So the sun here lights the **characters**, the props and anything else with an o
 - **A yaw in one handedness is not a yaw in the other.** Converting pitch and yaw separately between a Z-up left-handed world and Godot's Y-up right-handed one produces a sun that rises in the north, and nothing about the result looks wrong enough to question. `DotLightRig.sun_rotation` builds the direction in the source convention and swaps axes once, on the vector.
 - **A sun straight overhead has no `looking_at`.** It is parallel to the default up vector and a basis cannot be built from two parallel vectors. Worlds with an exactly vertical sun are ordinary, not a corner case, and the suite asserts the result is a number rather than a `NaN`.
 
+## The sky's top can be its own colour
+
+The procedural sky's zenith is drawn in the ambient colour by default, because in a converted world that is literally the colour of its sky. A world whose shade is meant to be paler than its sky says so with `"sky_top": [r, g, b]` at the top level of the document; the sky changes and the ambient light does not. Without the key, a world looks exactly as it did before the key existed.
+
 ## The glow threshold is under 1.0 on purpose
 
 A world lit by a baked 8-bit lightmap has nothing above white in it anywhere, so an HDR glow threshold finds nothing to bloom at, on any map, for ever. Lowering it is what lets the brightest surfaces — the strip lights and signage a level is signposted with — read as light rather than as paint. Raise it above 1.0 for a world whose materials genuinely emit.
@@ -65,7 +69,7 @@ A lighting rig belongs to a world. A process running a server and a client, or h
 
 ```bash
 godot --headless --path . --import
-godot --headless --path . res://examples/lighting_selftest.tscn   # 55 checks
+godot --headless --path . res://examples/lighting_selftest.tscn   # 72 checks
 ```
 
 ## Licence

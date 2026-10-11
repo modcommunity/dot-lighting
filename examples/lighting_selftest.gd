@@ -10,8 +10,8 @@ extends Node3D
 ## that had already announced itself. A suite reporting "0 failed" with checks missing is a
 ## failure this family has shipped more than once.
 
-const EXPECTED_SECTIONS := 6
-const EXPECTED_CHECKS := 57
+const EXPECTED_SECTIONS := 7
+const EXPECTED_CHECKS := 72
 
 var _passed := 0
 var _failed := 0
@@ -27,6 +27,7 @@ func _ready() -> void:
 	_sun_direction()
 	_profiles()
 	_rig()
+	_sky_top()
 	_zone()
 	print("")
 	_check(_sections == EXPECTED_SECTIONS,
@@ -261,6 +262,78 @@ func _rig() -> void:
 	_done()
 
 
+## A sky colour of its own, apart from the ambient.
+##
+## [b]The default is the half that matters most.[/b] Every document written before sky_top
+## existed has to draw the sky it always did, so the first checks are the old zenith
+## (ambient, or a darker horizon) and an ambient light the new key cannot reach.
+func _sky_top() -> void:
+	_section("sky_top: the zenith apart from the fill")
+
+	var base := {
+		"sun": {"pitch_src": -50.0, "yaw_src": -35.0, "brightness": 380.0,
+			"ambient_colour": [0.74, 0.78, 0.92]},
+		"fog": {"enabled": true, "colour": [0.80, 0.89, 1.0], "start": 2600.0, "end": 12000.0},
+	}
+	var plain := DotLightDocument.from_dictionary(base)
+	_check(not plain.has_sky_top, "a document without sky_top does not claim one")
+	_check(not plain.to_dictionary().has("sky_top"), "and does not write one back out")
+	var plain_sky := _sky_of(DotLightRig.environment(plain))
+	_check(plain_sky != null and plain_sky.sky_top_color.is_equal_approx(Color(0.74, 0.78, 0.92)),
+		"and its zenith is still the ambient, exactly as before sky_top existed")
+	var dark := _sky_of(DotLightRig.environment(DotLightDocument.from_dictionary(
+		{"fog": {"enabled": true, "colour": [0.80, 0.89, 1.0], "end": 12000.0}})))
+	_check(dark != null and dark.sky_top_color.is_equal_approx(Color(0.80, 0.89, 1.0).darkened(0.3)),
+		"and with no ambient either, still the darker horizon")
+
+	# The shape game-arena's maps already carry: a top-level key beside sky_name.
+	var data := base.duplicate(true)
+	data["sky_top"] = [0.30, 0.56, 0.96]
+	var doc := DotLightDocument.from_dictionary(data)
+	var blue := Color(0.30, 0.56, 0.96)
+	_check(doc.has_sky_top and doc.sky_top.is_equal_approx(blue),
+		"a top-level \"sky_top\": [r, g, b] is read")
+	var env_node := DotLightRig.environment(doc)
+	var env := env_node.environment
+	var sky := _sky_of(env_node)
+	_check(sky != null and sky.sky_top_color.is_equal_approx(blue), "and drawn as the zenith")
+	_check(env.ambient_light_color.is_equal_approx(Color(0.74, 0.78, 0.92)),
+		"while the ambient LIGHT stays the pale fill, which is the point of naming it apart")
+	_check(sky != null and sky.sky_horizon_color.is_equal_approx(env.fog_light_color),
+		"and the horizon is still the fog colour")
+	var floating := DotLightProfile.high()
+	floating.sky_below_horizon = true
+	var under := _sky_of(DotLightRig.environment(doc, floating))
+	_check(under != null and under.ground_bottom_color.is_equal_approx(blue),
+		"and a world floating in its sky mirrors the sky_top underneath, not the ambient")
+
+	var back := DotLightDocument.from_dictionary(doc.to_dictionary())
+	_check(back.has_sky_top and back.sky_top.is_equal_approx(blue), "it survives being written down")
+	var via_json := DotLightDocument.from_dictionary(
+		JSON.parse_string(JSON.stringify(doc.to_dictionary())) as Dictionary)
+	_check(via_json.has_sky_top and via_json.sky_top.is_equal_approx(blue), "and through JSON")
+
+	# Absent is not zero here either: black is a colour, and a malformed value is absent.
+	var black := DotLightDocument.from_dictionary({"sky_top": [0.0, 0.0, 0.0]})
+	_check(black.has_sky_top and black.sky_top == Color.BLACK, "a black sky_top means black")
+	var bad := DotLightDocument.from_dictionary({"sky_top": [0.3, 0.5]})
+	var bad_word := DotLightDocument.from_dictionary({"sky_top": "blue"})
+	_check(not bad.has_sky_top and not bad_word.has_sky_top,
+		"and a value that is not a colour is ignored rather than painted as a default")
+	_done()
+
+
+## The procedural sky [param node] draws. Frees the node: the material and the
+## [Environment] are resources and outlive it for as long as the caller holds them.
+func _sky_of(node: WorldEnvironment) -> ProceduralSkyMaterial:
+	var env := node.environment
+	var mat: ProceduralSkyMaterial = null
+	if env.sky != null:
+		mat = env.sky.sky_material as ProceduralSkyMaterial
+	node.free()
+	return mat
+
+
 func _zone() -> void:
 	_section("the inspector half")
 
@@ -282,5 +355,10 @@ func _zone() -> void:
 	_check(is_equal_approx(zone.document().sun_pitch, -70.0),
 		"and a missing file falls back to them rather than to darkness")
 
+	_check(not doc.has_sky_top, "and by default it names no sky_top, like a document")
+	zone.sky_top_enabled = true
+	zone.sky_top = Color(0.2, 0.4, 0.9)
+	_check(zone.document().has_sky_top and zone.document().sky_top.is_equal_approx(Color(0.2, 0.4, 0.9)),
+		"until its Sky group asks for one")
 	_check(zone.describe_lines().size() >= 4, "and it can describe itself")
 	_done()
