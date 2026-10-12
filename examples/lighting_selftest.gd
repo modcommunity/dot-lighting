@@ -11,7 +11,7 @@ extends Node3D
 ## failure this family has shipped more than once.
 
 const EXPECTED_SECTIONS := 8
-const EXPECTED_CHECKS := 90
+const EXPECTED_CHECKS := 91
 
 var _passed := 0
 var _failed := 0
@@ -381,6 +381,8 @@ func _painted() -> void:
 		_check(fill_travel.y < 0.0, "and downwards, from the sky")
 		_check(not fill.shadow_enabled and fill.light_specular == 0.0,
 			"with no shadow and no glint, so there is still one sun")
+		_check(fill.sky_mode == DirectionalLight3D.SKY_MODE_LIGHT_ONLY,
+			"and no disc in the sky, where a dim one is a dark dot")
 		_check(fill.light_color.is_equal_approx(doc.ambient_colour) and is_equal_approx(fill.light_energy, painted.fill_energy),
 			"in the shade's own colour, at the profile's energy")
 	var env := env_node.environment if env_node != null else null

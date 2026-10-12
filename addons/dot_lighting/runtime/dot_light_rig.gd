@@ -87,6 +87,10 @@ static func fill(doc: DotLightDocument, sun_rotation: Vector3, profile: DotLight
 	# No glint: a second highlight on every glossy surface is the giveaway of a second sun.
 	light.light_specular = 0.0
 	light.shadow_enabled = false
+	# Not drawn in the sky. A procedural sky paints a disc for every directional light, and
+	# the fill's (dim, in the shade's colour) is darker than the blue around it: a black dot
+	# hanging in every frame, found in the first render.
+	light.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
 	return light
 
 

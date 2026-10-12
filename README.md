@@ -44,7 +44,7 @@ Every field is optional, and a document that says nothing about the sun is diffe
 `high()`, `web()` and `low()` are for a world whose shade is baked into it. A world built from flat colours has nothing but the rig's light to read a shape by, and under the stock numbers it comes out pale: the floor near white and the shade a step from the sun side. `DotLightProfile.painted()` is the tier this platform gets, with:
 
 - **a longer filmic shoulder and an exposure under 1.0**, so a pale floor in full sun lands a light grey and a saturated paint keeps its colour;
-- **a fill**: a dim, shadowless light in the shade's colour from the side of the sky the sun is not on. An ambient colour lights every face alike, so a box in shade is one flat colour with no edges; the fill makes faces turned different ways different shades, which is the shape ambient occlusion would give and the Compatibility renderer cannot draw;
+- **a fill**: a dim, shadowless light in the shade's colour from the side of the sky the sun is not on. An ambient colour lights every face alike, so a box in shade is one flat colour with no edges; the fill makes faces turned different ways different shades, which is the shape ambient occlusion would give and the Compatibility renderer cannot draw. It casts no shadow, has no specular and draws no disc in the sky (a dim one is a dark dot);
 - **a little contrast and saturation** through the adjustment pass, which both renderers have;
 - **ambient occlusion** where the renderer has it (Forward+);
 - **numbers matched to the renderer.** Forward+ lights into an HDR buffer and the tone map rolls a bright face back under white; the Compatibility renderer clips first. Under Compatibility the sun is divided further, the ambient and fill lowered and the exposure dropped, so both renderers' frames land within a shade of each other.
@@ -87,7 +87,7 @@ A lighting rig belongs to a world. A process running a server and a client, or h
 
 ```bash
 godot --headless --path . --import
-godot --headless --path . res://examples/lighting_selftest.tscn   # 90 checks
+godot --headless --path . res://examples/lighting_selftest.tscn   # 91 checks
 ```
 
 ## Licence
