@@ -68,6 +68,85 @@ extends Resource
 
 @export_range(0.0, 8.0, 0.01) var ambient_energy: float = 0.8
 
+## Brightness going into the tone map. 1.0 is untouched.
+##
+## [b]A pale world's floor comes down here, not by dimming the sun.[/b] The sun against the
+## ambient is the contrast between a lit face and a shaded one; the exposure moves both
+## together, so the floor stops being white without the shade getting any closer to it.
+@export_range(0.1, 4.0, 0.01) var exposure: float = 1.0
+
+## A grade over the tone-mapped picture: the renderer's adjustment pass, which the
+## Compatibility renderer has as well. 1.0 and 1.0 leave the pass switched off.
+@export_range(0.5, 2.0, 0.01) var contrast: float = 1.0
+@export_range(0.0, 2.0, 0.01) var saturation: float = 1.0
+
+## A second, shadowless light from the side of the sky the sun is not on. 0 is none.
+##
+## [b]The shade's shape, where nothing else can draw it.[/b] An ambient colour lights every
+## face the same however it points, so in shade a box is one flat colour with no edges and a
+## step reads as a ramp. Ambient occlusion would separate them and the Compatibility renderer
+## (the client shell's, on every platform) has none. A dim light from the opposite side does
+## it for one directional light's cost: faces turned towards it are a step lighter than faces
+## turned away, and the shade keeps its corners. It is in the ambient's colour, so it reads as
+## more sky rather than as a second sun, and it casts no shadow, so there is still one
+## direction shadows fall in. Off for a baked world, whose shade is in its lightmap already.
+@export_range(0.0, 2.0, 0.01) var fill_energy: float = 0.0
+
+## Degrees above the horizon the fill comes from.
+@export_range(5.0, 85.0, 1.0) var fill_elevation: float = 35.0
+
+## Screen-space ambient occlusion, where the renderer has it (Forward+). Compatibility does
+## not, and on it this asks for nothing; [member fill_energy] is what reads there.
+@export var ambient_occlusion: bool = false
+
+
+## Whether this process draws with the Compatibility renderer: the client shell's, on every
+## platform, and the only one in a browser.
+static func is_compatibility() -> bool:
+	return RenderingServer.get_current_rendering_method() == "gl_compatibility"
+
+
+## A hand-built world of painted surfaces under a sun: this platform's tier, graded for
+## contrast and matched to the renderer that draws it.
+##
+## [b]For a world built from flat colours, not one converted with its light baked in.[/b] A
+## baked world's shade is in its lightmap and takes [method high] or [method web] as they
+## are. A painted one has nothing but this light to read a shape by, and the stock profile
+## (a filmic white of 1.6, an ambient at 0.8 of the sun's level) draws it pale: every map the
+## family built that way came out near white, with the shade a step from the sun side.
+##
+## What this changes, each for a reason a frame showed:
+## [br]- A filmic white of 3.0: a longer shoulder, so a pale floor in full sun lands a light
+##   grey instead of white, and a saturated paint keeps its colour in the light.
+## [br]- A fill ([member fill_energy]) and a lower ambient: the same total light in the shade,
+##   but faces turned different ways are different shades, so a box keeps its edges.
+## [br]- A little contrast and saturation, so a pastel is a colour and not a tint of white.
+## [br]- Ambient occlusion where the renderer has it.
+## [br]- [b]Under Compatibility, the light itself is turned down.[/b] Forward+ lights into an
+##   HDR buffer and the tone map rolls a bright face back under white; Compatibility has no
+##   headroom over white and clips it first, so the sun and the fill are divided down and the
+##   exposure lowered to land both renderers' frames within a shade of each other. The world
+##   is the same; this is what each renderer can draw of it.
+##
+## A game changes what it needs afterwards (shadows on in a browser for a small map, the sky
+## under the horizon for a floating one); everything here is a field.
+static func painted() -> DotLightProfile:
+	var p := web() if OS.has_feature("web") else high()
+	p.tonemap_white = 3.0
+	p.contrast = 1.12
+	p.saturation = 1.15
+	p.ambient_occlusion = true
+	if is_compatibility():
+		p.brightness_reference = 700.0
+		p.ambient_energy = 0.3
+		p.fill_energy = 0.35
+		p.exposure = 0.85
+	else:
+		p.ambient_energy = 0.45
+		p.fill_energy = 0.4
+		p.exposure = 0.95
+	return p
+
 
 ## Everything on. A desktop.
 static func high() -> DotLightProfile:

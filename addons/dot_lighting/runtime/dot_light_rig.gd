@@ -57,7 +57,36 @@ static func apply(
 		light.light_angular_distance = clampf(doc.sun_spread, 0.0, 90.0)
 
 	parent.add_child(light)
+	if profile.fill_energy > 0.0:
+		parent.add_child(fill(doc, light.rotation, profile))
 	parent.add_child(environment(doc, profile))
+	return light
+
+
+## The shadowless light from the side of the sky the sun is not on; see
+## [member DotLightProfile.fill_energy].
+##
+## [param sun_rotation] is the sun's (a [DirectionalLight3D] shines down its own -Z). The fill
+## shines the opposite way across the ground and down at [member DotLightProfile.fill_elevation],
+## so it reaches exactly the faces the sun does not. A sun straight overhead has no "opposite
+## side"; the fill then comes from a fixed one, since any side separates the faces.
+static func fill(doc: DotLightDocument, sun_rotation: Vector3, profile: DotLightProfile) -> DirectionalLight3D:
+	var travel := -Basis.from_euler(sun_rotation).z
+	var across := Vector3(-travel.x, 0.0, -travel.z)
+	if across.length_squared() < 0.0025:
+		across = Vector3(0.0, 0.0, 1.0)
+	var elevation := deg_to_rad(clampf(profile.fill_elevation, 5.0, 85.0))
+	var direction := across.normalized() * cos(elevation) + Vector3.DOWN * sin(elevation)
+
+	var light := DirectionalLight3D.new()
+	light.name = "Fill"
+	light.rotation = aim_along(direction)
+	# The shade's own colour, so the fill reads as more sky and not as a second sun.
+	light.light_color = doc.ambient_colour
+	light.light_energy = profile.fill_energy
+	# No glint: a second highlight on every glossy surface is the giveaway of a second sun.
+	light.light_specular = 0.0
+	light.shadow_enabled = false
 	return light
 
 
@@ -130,6 +159,21 @@ static func environment(
 		# being white and the other black.
 		env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 		env.tonemap_white = profile.tonemap_white
+	env.tonemap_exposure = profile.exposure
+
+	# Off unless asked: the adjustment pass is a full-screen pass, and a stock profile has
+	# nothing for it to do.
+	if not is_equal_approx(profile.contrast, 1.0) or not is_equal_approx(profile.saturation, 1.0):
+		env.adjustment_enabled = true
+		env.adjustment_contrast = profile.contrast
+		env.adjustment_saturation = profile.saturation
+
+	# Forward+ only: the other renderers have no screen-space occlusion, and asking for it
+	# there is a no-op at best. The radius is a step's depth, so a box sits on its floor.
+	if profile.ambient_occlusion and RenderingServer.get_current_rendering_method() == "forward_plus":
+		env.ssao_enabled = true
+		env.ssao_radius = 1.2
+		env.ssao_intensity = 1.6
 
 	if profile.glow:
 		env.glow_enabled = true

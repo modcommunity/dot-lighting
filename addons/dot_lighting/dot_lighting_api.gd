@@ -11,5 +11,8 @@ extends RefCounted
 #    DotLightZone.sky_top_enabled / sky_top. A pack whose map names a sky_top on a level-1
 #    host still runs, with the zenith in its ambient colour; the level is how it can ask
 #    for the sky it was drawn against.
-const LEVEL := 2
+# 3: DotLightProfile.painted() / is_compatibility(), and its exposure, contrast, saturation,
+#    fill_energy, fill_elevation and ambient_occlusion fields; DotLightRig.fill(). Every new
+#    field defaults to what the rig drew before, so high(), low() and web() are unchanged.
+const LEVEL := 3
 const OLDEST := 1

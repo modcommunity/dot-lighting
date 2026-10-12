@@ -10,8 +10,8 @@ extends Node3D
 ## that had already announced itself. A suite reporting "0 failed" with checks missing is a
 ## failure this family has shipped more than once.
 
-const EXPECTED_SECTIONS := 7
-const EXPECTED_CHECKS := 72
+const EXPECTED_SECTIONS := 8
+const EXPECTED_CHECKS := 90
 
 var _passed := 0
 var _failed := 0
@@ -28,6 +28,7 @@ func _ready() -> void:
 	_profiles()
 	_rig()
 	_sky_top()
+	_painted()
 	_zone()
 	print("")
 	_check(_sections == EXPECTED_SECTIONS,
@@ -332,6 +333,83 @@ func _sky_of(node: WorldEnvironment) -> ProceduralSkyMaterial:
 		mat = env.sky.sky_material as ProceduralSkyMaterial
 	node.free()
 	return mat
+
+
+## The preset for a hand-built world, and the fill it brings.
+##
+## [b]The stock profiles first, because every document already shipped is drawn with them.[/b]
+## The new fields default to what the rig drew before they existed (exposure 1, no grade, no
+## fill), so a converted world looks exactly as it did; only a game that asks for `painted()`
+## gets the new look.
+func _painted() -> void:
+	_section("painted: contrast for a world of flat colours")
+
+	for stock in [DotLightProfile.high(), DotLightProfile.web(), DotLightProfile.low()]:
+		var p := stock as DotLightProfile
+		_check(p.exposure == 1.0 and p.contrast == 1.0 and p.saturation == 1.0
+			and p.fill_energy == 0.0 and not p.ambient_occlusion,
+			"a stock profile leaves exposure, the grade, the fill and occlusion as they were")
+
+	var painted := DotLightProfile.painted()
+	_check(painted.tonemap and painted.tonemap_white > DotLightProfile.high().tonemap_white,
+		"painted is tone mapped with a longer shoulder, so a pale floor lands grey and not white")
+	_check(painted.fill_energy > 0.0 and painted.ambient_energy < DotLightProfile.high().ambient_energy,
+		"and trades some of the flat ambient for a fill, so shade keeps its edges")
+	_check(painted.contrast > 1.0 and painted.saturation > 1.0, "with a little contrast and colour")
+	_check(painted.exposure < 1.0, "and an exposure under 1.0")
+	_check(painted.sun_shadows == DotLightProfile.high().sun_shadows or OS.has_feature("web"),
+		"on this platform's own tier")
+
+	var doc := DotLightDocument.from_dictionary({
+		"sun": {"pitch_src": -50.0, "yaw_src": -35.0, "brightness": 380.0,
+			"ambient_colour": [0.74, 0.78, 0.92]},
+	})
+	var root := Node3D.new()
+	add_child(root)
+	var sun := DotLightRig.apply(root, doc, painted)
+	var fill: DirectionalLight3D = root.get_node_or_null("Fill")
+	var env_node: WorldEnvironment = null
+	for child in root.get_children():
+		if child is WorldEnvironment:
+			env_node = child
+	_check(fill != null and fill != sun, "the rig adds a second light named Fill")
+	if fill != null:
+		var sun_travel := -Basis.from_euler(sun.rotation).z
+		var fill_travel := -Basis.from_euler(fill.rotation).z
+		_check(Vector2(sun_travel.x, sun_travel.z).dot(Vector2(fill_travel.x, fill_travel.z)) < 0.0,
+			"shining across the ground the opposite way to the sun")
+		_check(fill_travel.y < 0.0, "and downwards, from the sky")
+		_check(not fill.shadow_enabled and fill.light_specular == 0.0,
+			"with no shadow and no glint, so there is still one sun")
+		_check(fill.light_color.is_equal_approx(doc.ambient_colour) and is_equal_approx(fill.light_energy, painted.fill_energy),
+			"in the shade's own colour, at the profile's energy")
+	var env := env_node.environment if env_node != null else null
+	_check(env != null and is_equal_approx(env.tonemap_exposure, painted.exposure),
+		"the exposure reaches the environment")
+	_check(env != null and env.adjustment_enabled and is_equal_approx(env.adjustment_contrast, painted.contrast)
+		and is_equal_approx(env.adjustment_saturation, painted.saturation),
+		"and so does the grade")
+	root.queue_free()
+
+	var stock_root := Node3D.new()
+	add_child(stock_root)
+	DotLightRig.apply(stock_root, doc)
+	var stock_env: Environment = null
+	for child in stock_root.get_children():
+		if child is WorldEnvironment:
+			stock_env = (child as WorldEnvironment).environment
+	_check(stock_root.get_node_or_null("Fill") == null, "a stock profile adds no fill")
+	_check(stock_env != null and not stock_env.adjustment_enabled and stock_env.tonemap_exposure == 1.0,
+		"and no grade, at an exposure of 1")
+	stock_root.queue_free()
+
+	# A sun straight overhead has no opposite side; the fill still has to point somewhere real.
+	var overhead := DotLightRig.fill(doc, DotLightRig.aim_along(Vector3.DOWN), painted)
+	var up_travel := -Basis.from_euler(overhead.rotation).z
+	_check(is_finite(up_travel.x) and up_travel.y < 0.0,
+		"under an overhead sun the fill comes from a fixed side, not from NaN")
+	overhead.free()
+	_done()
 
 
 func _zone() -> void:

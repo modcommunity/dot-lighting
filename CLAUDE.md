@@ -11,8 +11,8 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first.
 | Path | What |
 | --- | --- |
 | `core/dot_light_document.gd` | `DotLightDocument`: what the world is; `from_dictionary`, `to_dictionary`, `has_sun`, `has_ambient`, `sky_name`, `sky_top`/`has_sky_top`, `baked_light_count` |
-| `core/dot_light_profile.gd` | `DotLightProfile`: what this machine draws (tonemap, glow, fog, sky, shadows); `high()`, `low()`, `web()` |
-| `runtime/dot_light_rig.gd` | `DotLightRig`: `apply`, `environment`, the procedural sky, `METRES_PER_UNIT` and `metres()` |
+| `core/dot_light_profile.gd` | `DotLightProfile`: what this machine draws (tonemap, exposure, grade, fill, glow, fog, sky, shadows, occlusion); `high()`, `low()`, `web()` for baked worlds, `painted()` for hand-built ones; `is_compatibility()` |
+| `runtime/dot_light_rig.gd` | `DotLightRig`: `apply`, `environment`, `fill`, the procedural sky, `METRES_PER_UNIT` and `metres()` |
 | `runtime/dot_light_zone.gd` | `DotLightZone`: the inspector half for a hand-built world; builds the lighting on `_ready` and steps aside |
 | `dot_lighting_api.gd` | the API level (`DotAddonApi`); bump `LEVEL` for anything a game could newly call, with a comment line saying what |
 | `examples/lighting_selftest.tscn` | the suite |
@@ -33,6 +33,10 @@ The family's two steps ([game-dev/CLAUDE.md](../../CLAUDE.md#validating-anything
 - **The sun does not light a baked world's surfaces.** They are unshaded (the lightmap is their lighting), so the sun lights characters and props and the post-processing changes the world. "The sun does not seem to do anything" on a baked map is working as intended.
 - **`sky_name` is carried, never drawn.** It names a texture set inside the game the world was authored for, which is not ours to copy. The rig draws a procedural sky from the world's own numbers instead: fog colour as the horizon, ambient as the top, the sun at its own angle.
 - **`sky_top` is optional and absent draws the old sky exactly.** A converted world's ambient was measured from its sky, so the zenith in the ambient colour is right there; a world whose ambient was chosen for the shade names its zenith as a top-level `"sky_top": [r, g, b]`, and only what is drawn changes, never the ambient light. A malformed value is absent, not a default colour. The suite's `sky_top` section asserts both halves.
+- **A hand-built world takes `painted()`; a baked one takes `high()`/`web()`.** Painted worlds were near white under the stock numbers (a filmic white of 1.6, an ambient at 0.8 of the sun). `painted()` lengthens the shoulder, lowers the exposure, grades, and trades ambient for a fill. Its numbers were set by rendering a painted map in both renderers and measuring the sunlit floor and the shade (README, "A hand-built world").
+- **New profile fields default to the old drawing.** `exposure` 1, `contrast`/`saturation` 1 (pass off), `fill_energy` 0, `ambient_occlusion` off, so a converted world never changes look because a field was added. The suite's `painted` section asserts the stock tiers.
+- **The Compatibility renderer clips before it tone maps.** A profile's light numbers are per renderer (`is_compatibility()`); one set tuned under Forward+ comes out white under the client shell, which draws Compatibility everywhere.
+- **The fill casts no shadow and has no specular.** There is still one sun: one shadow direction, one highlight. It is in the ambient colour so it reads as more sky.
 - **`baked_light_count` exists so nobody places those lights again** and lights the world twice.
 
 ## Not here yet

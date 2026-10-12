@@ -39,6 +39,24 @@ Every field is optional, and a document that says nothing about the sun is diffe
 
 **The browser drops the expensive half and not the cheap one.** A shadow pass scales with how much geometry is in frame, which on a large level is all of it; glow is a fixed cost in screen pixels that a phone-class GPU handles. Dropping glow first is the mistake the profiles exist to prevent.
 
+### A hand-built world: `painted()`
+
+`high()`, `web()` and `low()` are for a world whose shade is baked into it. A world built from flat colours has nothing but the rig's light to read a shape by, and under the stock numbers it comes out pale: the floor near white and the shade a step from the sun side. `DotLightProfile.painted()` is the tier this platform gets, with:
+
+- **a longer filmic shoulder and an exposure under 1.0**, so a pale floor in full sun lands a light grey and a saturated paint keeps its colour;
+- **a fill**: a dim, shadowless light in the shade's colour from the side of the sky the sun is not on. An ambient colour lights every face alike, so a box in shade is one flat colour with no edges; the fill makes faces turned different ways different shades, which is the shape ambient occlusion would give and the Compatibility renderer cannot draw;
+- **a little contrast and saturation** through the adjustment pass, which both renderers have;
+- **ambient occlusion** where the renderer has it (Forward+);
+- **numbers matched to the renderer.** Forward+ lights into an HDR buffer and the tone map rolls a bright face back under white; the Compatibility renderer clips first. Under Compatibility the sun is divided further, the ambient and fill lowered and the exposure dropped, so both renderers' frames land within a shade of each other.
+
+```gdscript
+var p := DotLightProfile.painted()
+p.sun_shadows = true            # a small map can afford them in a browser
+DotLightRig.apply(world_root, doc, p)
+```
+
+Every new field (`exposure`, `contrast`, `saturation`, `fill_energy`, `fill_elevation`, `ambient_occlusion`) defaults to what the rig drew before it existed, so the stock tiers and every converted world look exactly as they did.
+
 **Tone mapping survives every tier**, including the lowest. Godot's default is `LINEAR`, which is not a tone map — it clips. A filmic shoulder is why a bright sky and a dark wall can both be readable in one frame instead of one being white and the other black, and it is a curve applied to a pixel that was going to be written anyway.
 
 ## What it can change, and what it cannot
@@ -69,7 +87,7 @@ A lighting rig belongs to a world. A process running a server and a client, or h
 
 ```bash
 godot --headless --path . --import
-godot --headless --path . res://examples/lighting_selftest.tscn   # 72 checks
+godot --headless --path . res://examples/lighting_selftest.tscn   # 90 checks
 ```
 
 ## Licence
