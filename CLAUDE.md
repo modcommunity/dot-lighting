@@ -36,7 +36,8 @@ The family's two steps ([game-dev/CLAUDE.md](../../CLAUDE.md#validating-anything
 - **A hand-built world takes `painted()`; a baked one takes `high()`/`web()`.** Painted worlds were near white under the stock numbers (a filmic white of 1.6, an ambient at 0.8 of the sun). `painted()` lengthens the shoulder, lowers the exposure, grades, and trades ambient for a fill. Its numbers were set by rendering a painted map in both renderers and measuring the sunlit floor and the shade (README, "A hand-built world").
 - **New profile fields default to the old drawing.** `exposure` 1, `contrast`/`saturation` 1 (pass off), `fill_energy` 0, `ambient_occlusion` off, so a converted world never changes look because a field was added. The suite's `painted` section asserts the stock tiers.
 - **The Compatibility renderer clips before it tone maps.** A profile's light numbers are per renderer (`is_compatibility()`); one set tuned under Forward+ comes out white under the client shell, which draws Compatibility everywhere.
-- **The fill casts no shadow and has no specular.** There is still one sun: one shadow direction, one highlight. It is in the ambient colour so it reads as more sky.
+- **`contrast` pivots at mid grey, so it crushes dark albedo in shade.** At `painted()`'s 1.12 a dark trunk or chair in shade goes to black; a world with dark props lowers it (mg-prop-hunt and game-hide-n-seek use 1.04). Check the near-black share of a frame, not only the blown one.
+- **The fill casts no shadow, has no specular and draws no sky disc.** There is still one sun: one shadow direction, one highlight. It is in the ambient colour so it reads as more sky.
 - **`baked_light_count` exists so nobody places those lights again** and lights the world twice.
 
 ## Not here yet
