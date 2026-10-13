@@ -59,6 +59,23 @@ Every new field (`exposure`, `contrast`, `saturation`, `fill_energy`, `fill_elev
 
 **Tone mapping survives every tier**, including the lowest. Godot's default is `LINEAR`, which is not a tone map — it clips. A filmic shoulder is why a bright sky and a dark wall can both be readable in one frame instead of one being white and the other black, and it is a curve applied to a pixel that was going to be written anyway.
 
+### A contact shade where boxes meet: `DotContactShade`
+
+The Compatibility renderer has no ambient occlusion, so in a painted world a crate meets the floor, and a wall the ceiling, with no shade in the corner, and nothing seems to stand on anything. `DotContactShade` is the cheap stand-in for a world built of boxes: hand it the boxes once at load and it returns one mesh of thin bands, a few millimetres off each face, that darken both faces of every concave crease (a box on the floor, a wall in a corner, a box on a box), deepest at the crease and gone 45 cm out.
+
+```gdscript
+var boxes: Array = []
+for b in map_boxes:
+    boxes.append(DotContactShade.box(b.transform, b.size))   # casts, shaded
+add_child(DotContactShade.node(boxes))
+```
+
+- **Its own mesh, not the game's.** A face is two triangles, so a vertex colour on a wall is a gradient the height of the wall; and every game draws its boxes its own way. The bands are one unshaded draw call for a whole map, black at an alpha of the shade, which multiplies the world behind them, commutes, and needs no sorting.
+- **Not `blend_mul`.** With glow on, the Compatibility renderer keeps the scene scaled down in its buffer; a multiplied white drew a fifth of the wall behind it.
+- **How dark is how far it sticks out:** full under anything taller than the band, fainter under a step, nothing round a rug. Floor tiles side by side make no crease; a wall sunk into the floor makes the same one as a wall standing on it.
+- **Per box:** `casts` (glass and water do not) and `shaded` (a prop's bounding box darkens the floor round it but takes no bands of its own). A box must have one axis along the face it stands on: yawed, not tilted.
+- **Cheap at load:** a school of 449 boxes builds in under 0.1 s, about 88 000 vertices. Nothing runs per frame; the bands fade out past 40-70 m, where their depth would fight.
+
 ## What it can change, and what it cannot
 
 A world drawn from a **baked lightmap** has its lighting in its textures: its materials are unshaded, and a directional light added beside them lights nothing they own.

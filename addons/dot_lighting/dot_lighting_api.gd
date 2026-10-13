@@ -14,5 +14,7 @@ extends RefCounted
 # 3: DotLightProfile.painted() / is_compatibility(), and its exposure, contrast, saturation,
 #    fill_energy, fill_elevation and ambient_occlusion fields; DotLightRig.fill(). Every new
 #    field defaults to what the rig drew before, so high(), low() and web() are unchanged.
-const LEVEL := 3
+# 4: DotContactShade (box, node, mesh, material, build): a multiplied contact shade where
+#    boxes meet, the fake ambient occlusion for the Compatibility renderer.
+const LEVEL := 4
 const OLDEST := 1

@@ -10,8 +10,8 @@ extends Node3D
 ## that had already announced itself. A suite reporting "0 failed" with checks missing is a
 ## failure this family has shipped more than once.
 
-const EXPECTED_SECTIONS := 8
-const EXPECTED_CHECKS := 91
+const EXPECTED_SECTIONS := 9
+const EXPECTED_CHECKS := 104
 
 var _passed := 0
 var _failed := 0
@@ -30,6 +30,7 @@ func _ready() -> void:
 	_sky_top()
 	_painted()
 	_zone()
+	_contact_shade()
 	print("")
 	_check(_sections == EXPECTED_SECTIONS,
 		"every section ran to its last line (%d of %d)" % [_sections, EXPECTED_SECTIONS])
@@ -441,4 +442,78 @@ func _zone() -> void:
 	_check(zone.document().has_sky_top and zone.document().sky_top.is_equal_approx(Color(0.2, 0.4, 0.9)),
 		"until its Sky group asks for one")
 	_check(zone.describe_lines().size() >= 4, "and it can describe itself")
+	_done()
+
+
+## [b]A contact shade where a box meets the floor or another box.[/b] Painted worlds under
+## Compatibility (no SSAO) stood every crate on the floor with no shade at its foot.
+func _contact_shade() -> void:
+	_section("contact shade: where a box meets a box")
+
+	var floor_box := DotContactShade.box(Transform3D(Basis.IDENTITY, Vector3(0.0, -0.5, 0.0)), Vector3(10.0, 1.0, 10.0))
+	var cube := DotContactShade.box(Transform3D(Basis.IDENTITY, Vector3(0.0, 0.5, 0.0)), Vector3.ONE)
+	var on_floor := DotContactShade.build([floor_box, cube])
+	_check(int(on_floor["bands"]) == 8 and int(on_floor["corners"]) == 4,
+		"a cube on a floor: a band each side of each foot edge and a square at each corner (%d, %d)" % [on_floor["bands"], on_floor["corners"]])
+	var darkest := 1.0
+	var highest := -INF
+	var widest := 0.0
+	for i in range((on_floor["vertices"] as PackedVector3Array).size()):
+		var at: Vector3 = on_floor["vertices"][i]
+		darkest = minf(darkest, (on_floor["colors"][i] as Color).r)
+		highest = maxf(highest, at.y)
+		widest = maxf(widest, maxf(absf(at.x), absf(at.z)))
+	_check(is_equal_approx(darkest, 1.0 - DotContactShade.STRENGTH),
+		"as dark as STRENGTH at the crease (%.2f)" % darkest)
+	_check(highest < DotContactShade.WIDTH + 0.01 and widest < 0.5 + DotContactShade.WIDTH + 0.01,
+		"reaching WIDTH up the cube and out across the floor, no further")
+
+	var tile_a := DotContactShade.box(Transform3D(Basis.IDENTITY, Vector3(-1.0, 0.0, 0.0)), Vector3(2.0, 0.2, 2.0))
+	var tile_b := DotContactShade.box(Transform3D(Basis.IDENTITY, Vector3(1.0, 0.0, 0.0)), Vector3(2.0, 0.2, 2.0))
+	_check(int(DotContactShade.build([tile_a, tile_b])["bands"]) == 0,
+		"two floor tiles side by side make no crease")
+
+	var sunk := DotContactShade.box(Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0)), Vector3(4.0, 3.0, 0.2))
+	_check(int(DotContactShade.build([floor_box, sunk])["bands"]) == 8,
+		"a wall sunk into the floor makes the same crease as one standing on it")
+
+	var rug := DotContactShade.box(Transform3D(Basis.IDENTITY, Vector3(0.0, 0.005, 0.0)), Vector3(2.0, 0.01, 1.0))
+	_check(int(DotContactShade.build([floor_box, rug])["bands"]) == 0, "a rug makes no ring")
+
+	var on_cube := DotContactShade.box(Transform3D(Basis.IDENTITY, Vector3(0.0, 1.25, 0.0)), Vector3(0.5, 0.5, 0.5))
+	var stacked := DotContactShade.build([cube, on_cube])
+	_check(int(stacked["bands"]) == 8 and int(stacked["creases"]) == 2,
+		"a box on a box shades the top it stands on")
+
+	var ledge := DotContactShade.box(Transform3D(Basis.IDENTITY, Vector3(4.8, 0.5, 0.0)), Vector3.ONE)
+	# Overhanging the edge: the floor's top is shaded only as far as it goes (the underside of
+	# the overhang and the floor's side under it are creases too, and are shaded).
+	var past := 0.0
+	for at: Vector3 in DotContactShade.build([floor_box, ledge])["vertices"]:
+		if at.y > 0.0 and at.y < 0.01:
+			past = maxf(past, at.x)
+	_check(past > 4.0 and past <= 5.0 + 0.001, "a box over the floor's edge shades the floor only as far as it goes (%.3f)" % past)
+
+	var yawed := DotContactShade.box(Transform3D(Basis(Vector3.UP, deg_to_rad(30.0)), Vector3(0.0, 0.5, 0.0)), Vector3.ONE)
+	_check(int(DotContactShade.build([floor_box, yawed])["bands"]) >= 4, "a box turned on the floor is shaded too")
+	var tilted := DotContactShade.box(Transform3D(Basis(Vector3.RIGHT, deg_to_rad(20.0)), Vector3(0.0, 0.5, 0.0)), Vector3.ONE)
+	_check(int(DotContactShade.build([floor_box, tilted])["bands"]) == 0, "and a tilted one is left alone")
+
+	var glass := DotContactShade.box(Transform3D(Basis.IDENTITY, Vector3(0.0, 0.5, 0.0)), Vector3.ONE, false, false)
+	var prop := DotContactShade.box(Transform3D(Basis.IDENTITY, Vector3(0.0, 0.5, 0.0)), Vector3.ONE, true, false)
+	var prop_shade := DotContactShade.build([floor_box, prop])
+	_check(int(DotContactShade.build([floor_box, glass])["bands"]) == 0
+		and int(prop_shade["bands"]) == 4
+		and (prop_shade["vertices"] as PackedVector3Array).size() < (on_floor["vertices"] as PackedVector3Array).size(),
+		"a box that does not cast makes none; one not shaded darkens the floor and draws nothing on itself")
+
+	_check(DotContactShade.mesh([cube]) == null
+		and int(DotContactShade.build([floor_box, cube, {"size": Vector3.ONE}, [Transform3D.IDENTITY, Vector3(NAN, 1.0, 1.0)], 7])["bands"]) == 8,
+		"nothing touching is no mesh, and a malformed entry is skipped")
+	var node := DotContactShade.node([floor_box, cube])
+	var shader := (node.material_override as ShaderMaterial).shader
+	_check(node.mesh != null and node.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		and shader.code.contains("blend_mix") and shader.code.contains("ALBEDO = vec3(0.0)") and shader.code.contains("unshaded"),
+		"the node is one unshaded mesh, black at the grey's alpha, casting no shadow")
+	node.free()
 	_done()

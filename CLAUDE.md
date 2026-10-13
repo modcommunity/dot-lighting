@@ -13,6 +13,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first.
 | `core/dot_light_document.gd` | `DotLightDocument`: what the world is; `from_dictionary`, `to_dictionary`, `has_sun`, `has_ambient`, `sky_name`, `sky_top`/`has_sky_top`, `baked_light_count` |
 | `core/dot_light_profile.gd` | `DotLightProfile`: what this machine draws (tonemap, exposure, grade, fill, glow, fog, sky, shadows, occlusion); `high()`, `low()`, `web()` for baked worlds, `painted()` for hand-built ones; `is_compatibility()` |
 | `runtime/dot_light_rig.gd` | `DotLightRig`: `apply`, `environment`, `fill`, the procedural sky, `METRES_PER_UNIT` and `metres()` |
+| `runtime/dot_contact_shade.gd` | `DotContactShade`: fake ambient occlusion for a world of boxes; `box`, `node`, `mesh`, `material`, `build` |
 | `runtime/dot_light_zone.gd` | `DotLightZone`: the inspector half for a hand-built world; builds the lighting on `_ready` and steps aside |
 | `dot_lighting_api.gd` | the API level (`DotAddonApi`); bump `LEVEL` for anything a game could newly call, with a comment line saying what |
 | `examples/lighting_selftest.tscn` | the suite |
@@ -38,9 +39,12 @@ The family's two steps ([game-dev/CLAUDE.md](../../CLAUDE.md#validating-anything
 - **The Compatibility renderer clips before it tone maps.** A profile's light numbers are per renderer (`is_compatibility()`); one set tuned under Forward+ comes out white under the client shell, which draws Compatibility everywhere.
 - **`contrast` pivots at mid grey, so it crushes dark albedo in shade.** At `painted()`'s 1.12 a dark trunk or chair in shade goes to black; a world with dark props lowers it (mg-prop-hunt and game-hide-n-seek use 1.04). Check the near-black share of a frame, not only the blown one.
 - **The fill casts no shadow, has no specular and draws no sky disc.** There is still one sun: one shadow direction, one highlight. It is in the ambient colour so it reads as more sky.
+- **A painted world of boxes takes `DotContactShade`** under Compatibility (no SSAO): its own band mesh, never vertex colours on the game's two-triangle faces (a gradient the height of the wall). Black at the shade's alpha, never `blend_mul` (the Compatibility glow buffer is scaled down: every band came out black). A crease is drawn only on the face it lies on; the other face's band comes from the swapped pair (drawing both doubled it). [README](README.md#a-contact-shade-where-boxes-meet-dotcontactshade)
 - **`baked_light_count` exists so nobody places those lights again** and lights the world twice.
 
 ## Not here yet
+
+- **The contact shade is in mg-prop-hunt's maps only.** game-arena (its built-in maps were the first target; another session held it), game-playground, game-hide-n-seek, mg-deathrun and mg-wipeout are not converted yet: nightly `look-fake-ao-2`.
 
 - **Point and spot lights.** A world that wants *dynamic* lights wants a different field from `baked_light_count`, and no consumer has asked for one.
 - **Light probes and reflection.** The sheen on a wet or polished surface is a cubemap, a material property rather than a world one.
