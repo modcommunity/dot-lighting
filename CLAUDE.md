@@ -44,7 +44,7 @@ The family's two steps ([game-dev/CLAUDE.md](../../CLAUDE.md#validating-anything
 
 ## Not here yet
 
-- **The contact shade is in mg-prop-hunt's maps only.** game-arena (its built-in maps were the first target; another session held it), game-playground, game-hide-n-seek, mg-deathrun and mg-wipeout are not converted yet: nightly `look-fake-ao-2`.
+- **The contact shade is in game-arena's built-in maps and mg-prop-hunt's maps only.** game-playground, game-hide-n-seek, mg-deathrun and mg-wipeout are not converted yet: nightly `look-fake-ao-2`.
 
 - **Point and spot lights.** A world that wants *dynamic* lights wants a different field from `baked_light_count`, and no consumer has asked for one.
 - **Light probes and reflection.** The sheen on a wet or polished surface is a cubemap, a material property rather than a world one.
