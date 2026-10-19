@@ -15,6 +15,10 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first.
 | `runtime/dot_light_rig.gd` | `DotLightRig`: `apply`, `environment`, `fill`, the procedural sky, `METRES_PER_UNIT` and `metres()` |
 | `runtime/dot_contact_shade.gd` | `DotContactShade`: fake ambient occlusion for a world of boxes; `box`, `node`, `mesh`, `material`, `build` |
 | `runtime/dot_light_zone.gd` | `DotLightZone`: the inspector half for a hand-built world; builds the lighting on `_ready` and steps aside |
+| `bake/dot_light_bake.gd` | `DotLightBake`: baked light for a world built in code; `fingerprint`, `attach` (runtime: refuses headless, a missing file at DEBUG, a stale one with a WARN), `prepare` and `store` (offline) |
+| `bake/dot_lightmap_sheet.gd` | `DotLightmapSheet`: deterministic UV2 for meshes of flat quads (the shelf packer); `face`, `pack`, `commit`, `size` |
+| `bake/bake.sh` | bakes a directory of bake scenes in the editor under xvfb, Forward+ on Vulkan; prints `DOT_BAKE` lines |
+| `editor/dot_light_bake_runner.gd` | what the plugin starts under `--dot-bake-lightmaps=`: opens each scene, presses the editor's bake button, answers its file dialog, calls `store` |
 | `dot_lighting_api.gd` | the API level (`DotAddonApi`); bump `LEVEL` for anything a game could newly call, with a comment line saying what |
 | `examples/lighting_selftest.tscn` | the suite |
 
@@ -40,11 +44,17 @@ The family's two steps ([game-dev/CLAUDE.md](../../CLAUDE.md#validating-anything
 - **`contrast` pivots at mid grey, so it crushes dark albedo in shade.** At `painted()`'s 1.12 a dark trunk or chair in shade goes to black; a world with dark props lowers it (mg-prop-hunt and game-hide-n-seek use 1.04). Check the near-black share of a frame, not only the blown one.
 - **The fill casts no shadow, has no specular and draws no sky disc.** There is still one sun: one shadow direction, one highlight. It is in the ambient colour so it reads as more sky.
 - **A painted world of boxes takes `DotContactShade`** under Compatibility (no SSAO): its own band mesh, never vertex colours on the game's two-triangle faces (a gradient the height of the wall). Black at the shade's alpha, never `blend_mul` (the Compatibility glow buffer is scaled down: every band came out black). A crease is drawn only on the face it lies on; the other face's band comes from the swapped pair (drawing both doubled it). [README](README.md#a-contact-shade-where-boxes-meet-dotcontactshade)
+- **A world built in code is baked from a copy of itself.** `LightmapGI.bake` is not bound for scripts in 4.7, so the game saves its drawn meshes as a bake scene (`prepare`) and the editor bakes that; the runner drives the editor's own button and file dialog. The editor needs Vulkan (Compatibility cannot bake); a real card bakes a map in seconds, Mesa's software Vulkan takes many minutes, so the family bakes on the GPU box (`~/godot/gpu.sh`; game-zombie-zone's `tools/bake_lightmaps.sh`).
+- **The shipped bake is one file with no import.** The editor's `.lmbake` points at an `.exr` imported as BPTC, which a browser may not decode and a mounted pack never re-imports. `store` reads the EXR, keeps it HDR in RGB9E5 and saves one zstd-compressed `LightmapGIData`; it needs a renderer to run in, so it runs in the editor.
+- **UV2 comes from `DotLightmapSheet`, never `lightmap_unwrap`.** The unwrapper is editor-only and not deterministic; the client rebuilds the mesh from the document and must get exactly the UV2 the bake saw. Change the layout and bump its `VERSION`: every fingerprint includes it.
+- **A bake carries a fingerprint of what it was baked from**, which the game computes from its document; a mismatch is refused with a WARN and the world drawn with its live lights. Mesh names must be the same on every build (a lightmap names its meshes by path from the `LightmapGI`).
+- **Lights baked whole are `BAKE_STATIC` at runtime** (they skip lightmapped surfaces and still light what moves); a sun a day cycle turns is `BAKE_DYNAMIC` in the bake scene, so only its bounce is baked.
 - **`baked_light_count` exists so nobody places those lights again** and lights the world twice.
 
 ## Not here yet
 
 - **The contact shade is in game-arena's built-in maps and mg-prop-hunt's maps only.** game-playground, game-hide-n-seek, mg-deathrun and mg-wipeout are not converted yet: nightly `look-fake-ao-2`.
 
-- **Point and spot lights.** A world that wants *dynamic* lights wants a different field from `baked_light_count`, and no consumer has asked for one.
+- **Point and spot lights in the document.** A world that wants *dynamic* lights wants a different field from `baked_light_count`, and no consumer has asked for one.
+- **Baked light is in game-zombie-zone only.** game-arena's built-in maps are the next consumer. Props and other separate meshes are not in a bake and cast no baked shadow.
 - **Light probes and reflection.** The sheen on a wet or polished surface is a cubemap, a material property rather than a world one.

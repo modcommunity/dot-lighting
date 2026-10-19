@@ -16,5 +16,7 @@ extends RefCounted
 #    field defaults to what the rig drew before, so high(), low() and web() are unchanged.
 # 4: DotContactShade (box, node, mesh, material, build): a multiplied contact shade where
 #    boxes meet, the fake ambient occlusion for the Compatibility renderer.
-const LEVEL := 4
+# 5: DotLightBake (fingerprint, can_draw, attach, prepare, store) and DotLightmapSheet: baked
+#    light for a world built in code, and the editor bake runner behind --dot-bake-lightmaps.
+const LEVEL := 5
 const OLDEST := 1

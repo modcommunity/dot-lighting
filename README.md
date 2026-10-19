@@ -96,6 +96,20 @@ The procedural sky's zenith is drawn in the ambient colour by default, because i
 
 A world lit by a baked 8-bit lightmap has nothing above white in it anywhere, so an HDR glow threshold finds nothing to bloom at, on any map, for ever. Lowering it is what lets the brightest surfaces — the strip lights and signage a level is signposted with — read as light rather than as paint. Raise it above 1.0 for a world whose materials genuinely emit.
 
+## Baked light for a world built in code: `DotLightBake`
+
+A map a game generates from a document at load time does not exist in the editor, so the editor has nothing to bake. The game makes it exist for a moment: it builds the map exactly as a client would, copies the drawn meshes into a scene with a `LightmapGI` (`DotLightBake.prepare`), and the editor bakes that scene (`addons/dot_lighting/bake/bake.sh <project> res://<dir>`, which needs the plugin enabled in `project.godot`; the plugin does nothing without the `--dot-bake-lightmaps=` flag). The result is one self-contained `LightmapGIData` per map, no import step, HDR in RGB9E5, that the game ships in its pack.
+
+At runtime the client rebuilds the same meshes, under the same names, with the same second UV set (`DotLightmapSheet`, a deterministic packer for meshes of flat quads), and calls:
+
+```gdscript
+var res := DotLightBake.attach(map_node, "res://lightmaps/%s.res" % id, DotLightBake.fingerprint(my_document_parts))
+if res.ok:
+    for lamp in my_lamps: lamp.light_bake_mode = Light3D.BAKE_STATIC   # baked, not drawn twice
+```
+
+A bake made from other geometry is refused with a WARN and the world is drawn with its live lights; a missing one is the same fallback at DEBUG; a headless process (a server) refuses and touches nothing. Baking needs Vulkan: a real graphics card does a map in seconds, a software one takes many minutes.
+
 ## No autoloads
 
 A lighting rig belongs to a world. A process running a server and a client, or holding two worlds while one loads over the other, needs two of them — and a global would make that the one arrangement this family cannot have.
@@ -104,7 +118,7 @@ A lighting rig belongs to a world. A process running a server and a client, or h
 
 ```bash
 godot --headless --path . --import
-godot --headless --path . res://examples/lighting_selftest.tscn   # 91 checks
+godot --headless --path . res://examples/lighting_selftest.tscn   # 116 checks
 ```
 
 ## Licence

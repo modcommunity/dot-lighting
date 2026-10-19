@@ -10,8 +10,8 @@ extends Node3D
 ## that had already announced itself. A suite reporting "0 failed" with checks missing is a
 ## failure this family has shipped more than once.
 
-const EXPECTED_SECTIONS := 9
-const EXPECTED_CHECKS := 104
+const EXPECTED_SECTIONS := 10
+const EXPECTED_CHECKS := 116
 
 var _passed := 0
 var _failed := 0
@@ -31,6 +31,7 @@ func _ready() -> void:
 	_painted()
 	_zone()
 	_contact_shade()
+	_bake()
 	print("")
 	_check(_sections == EXPECTED_SECTIONS,
 		"every section ran to its last line (%d of %d)" % [_sections, EXPECTED_SECTIONS])
@@ -516,4 +517,69 @@ func _contact_shade() -> void:
 		and shader.code.contains("blend_mix") and shader.code.contains("ALBEDO = vec3(0.0)") and shader.code.contains("unshaded"),
 		"the node is one unshaded mesh, black at the grey's alpha, casting no shadow")
 	node.free()
+	_done()
+
+
+func _sheet_arrays(faces: Array) -> Array:
+	var sheet := DotLightmapSheet.new()
+	for f: Array in faces:
+		sheet.face(f[0], f[1], f[2], f[3], f[4])
+	var tool := SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	sheet.commit(tool)
+	return [sheet, tool.commit_to_arrays()]
+
+
+func _bake() -> void:
+	_section("baked light: the sheet, the fingerprint, the refusals")
+
+	# A 4 x 3 m wall facing +z, a 1 x 1 m floor tile and a sliver (a 2 cm kerb side).
+	var faces := [
+		[Vector3(0, 0, 0), Vector3(0, 3, 0), Vector3(4, 3, 0), Vector3(4, 0, 0), Vector3.BACK],
+		[Vector3(0, 0, 1), Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 0, 1), Vector3.UP],
+		[Vector3(0, 0, 2), Vector3(0, 0.02, 2), Vector3(5, 0.02, 2), Vector3(5, 0, 2), Vector3.BACK],
+	]
+	var made := _sheet_arrays(faces)
+	var sheet: DotLightmapSheet = made[0]
+	var arrays: Array = made[1]
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var uv2: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2] if arrays[Mesh.ARRAY_TEX_UV2] != null else PackedVector2Array()
+	_check(verts.size() == 18 and uv2.size() == 18, "two triangles a face, every vertex with a UV2 (%d, %d)" % [verts.size(), uv2.size()])
+	var inside := true
+	for uv in uv2:
+		inside = inside and uv.x >= 0.0 and uv.y >= 0.0 and uv.x <= 1.0 and uv.y <= 1.0
+	_check(inside and sheet.size.x > 0 and sheet.size.y > 0, "inside the sheet (%dx%d texels)" % [sheet.size.x, sheet.size.y])
+	_check(verts[0] == faces[0][0] and verts[1] == faces[0][2] and verts[2] == faces[0][1],
+		"written a, c, b: the box builders' winding")
+
+	# Each face's rectangle, in texels: no two overlap, and the wall is 16 x 12 at 0.25 m.
+	var rects: Array[Rect2] = []
+	for f in 3:
+		var r := Rect2(uv2[f * 6] * Vector2(sheet.size), Vector2.ZERO)
+		for k in 6:
+			r = r.expand(uv2[f * 6 + k] * Vector2(sheet.size))
+		rects.append(r)
+	_check(rects[0].size.is_equal_approx(Vector2(16, 12)), "a texel is a quarter metre (the wall is %s)" % rects[0].size)
+	_check(not rects[0].intersects(rects[1]) and not rects[0].intersects(rects[2]) and not rects[1].intersects(rects[2]),
+		"no two faces share a texel")
+	_check(rects[2].size.y >= 1.0, "a 2 cm sliver still gets a texel")
+	var pad := float(sheet.padding) - 0.01
+	_check(not rects[0].grow(pad).intersects(rects[1].grow(pad)) and not rects[0].grow(pad).intersects(rects[2].grow(pad))
+		and not rects[1].grow(pad).intersects(rects[2].grow(pad)), "with padding texels between any two")
+	var again: Array = _sheet_arrays(faces)[1]
+	_check(again[Mesh.ARRAY_TEX_UV2] == arrays[Mesh.ARRAY_TEX_UV2], "the same faces give the same sheet, every time")
+
+	var fp := DotLightBake.fingerprint({"boxes": [[1, 2, 3]], "lights": []})
+	_check(fp.length() == 64 and fp == DotLightBake.fingerprint({"lights": [], "boxes": [[1, 2, 3]]}),
+		"a fingerprint is a sha256, the same whatever order the keys came in")
+	_check(fp != DotLightBake.fingerprint({"boxes": [[1, 2, 3.5]], "lights": []}), "and a moved box is a different one")
+
+	var host := Node3D.new()
+	var refused := DotLightBake.attach(host, "res://nowhere.res", fp)
+	_check(not refused.ok and refused.error.code == (DotError.CODE_UNSUPPORTED if not DotLightBake.can_draw() else DotError.CODE_IO)
+		and host.get_child_count() == 0,
+		"headless, nothing is attached (%s), and the world is left as it was" % (refused.error.code if refused.error != null else "ok"))
+	var none := DotLightBake.store(null, fp, "user://x.res")
+	_check(not none.ok and none.error.code == DotError.CODE_INVALID, "storing nothing is refused")
+	host.free()
 	_done()
