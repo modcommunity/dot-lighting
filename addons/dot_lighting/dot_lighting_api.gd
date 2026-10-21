@@ -18,5 +18,7 @@ extends RefCounted
 #    boxes meet, the fake ambient occlusion for the Compatibility renderer.
 # 5: DotLightBake (fingerprint, can_draw, attach, prepare, store) and DotLightmapSheet: baked
 #    light for a world built in code, and the editor bake runner behind --dot-bake-lightmaps.
-const LEVEL := 5
+# 6: DotLightRig.apply_fog(env, doc, metres_per_unit): the fog half of environment(), for a system
+#    (weather) that changes the fog of a world that is already running.
+const LEVEL := 6
 const OLDEST := 1

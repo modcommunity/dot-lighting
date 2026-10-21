@@ -187,26 +187,43 @@ static func environment(
 		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 
 	if profile.fog and doc.fog_enabled:
-		env.fog_enabled = true
-		env.fog_mode = Environment.FOG_MODE_DEPTH
-		env.fog_light_color = horizon
-		# A source world may write a negative start, meaning "from the camera". A negative
-		# depth here is not the same statement, so it is clamped rather than passed on.
-		var start := maxf(doc.fog_start, 0.0)
-		env.fog_depth_begin = metres(start)
-		env.fog_depth_end = metres(maxf(doc.fog_end, start + 1.0))
-		# [b]The document's own maximum, not 1.0.[/b] A source world says how opaque its
-		# fog is allowed to get and it is not always "completely": a world that says 0.4
-		# wants distance tinted, not erased, and forcing the full density deletes
-		# everything past the far plane of the fog instead of hazing it.
-		env.fog_density = clampf(doc.fog_max_density, 0.0, 1.0)
-		env.fog_depth_curve = 1.0
-		# Fog over the sky as well would flatten the one thing that is meant to be behind
-		# everything, and the sky is already the colour the fog fades into.
-		env.fog_sky_affect = 0.0
+		apply_fog(env, doc)
 
 	node.environment = env
 	return node
+
+
+## Writes [param doc]'s fog onto an existing [param env], and switches fog off on it when the
+## document has none. This is what [method environment] does for its own environment, exposed
+## so a system that changes the fog while the world is running (weather) writes it the way a
+## map's lighting does, rather than building a second [WorldEnvironment] or a second opinion on
+## what the fog numbers mean.
+##
+## [param metres_per_unit] converts the document's start and end; pass [code]1.0[/code] for a
+## document already in metres.
+static func apply_fog(env: Environment, doc: DotLightDocument, metres_per_unit: float = METRES_PER_UNIT) -> void:
+	if env == null or doc == null:
+		return
+	if not doc.fog_enabled:
+		env.fog_enabled = false
+		return
+	env.fog_enabled = true
+	env.fog_mode = Environment.FOG_MODE_DEPTH
+	env.fog_light_color = doc.fog_colour
+	# A source world may write a negative start, meaning "from the camera". A negative
+	# depth here is not the same statement, so it is clamped rather than passed on.
+	var start := maxf(doc.fog_start, 0.0)
+	env.fog_depth_begin = start * metres_per_unit
+	env.fog_depth_end = maxf(doc.fog_end, start + 1.0) * metres_per_unit
+	# [b]The document's own maximum, not 1.0.[/b] A source world says how opaque its
+	# fog is allowed to get and it is not always "completely": a world that says 0.4
+	# wants distance tinted, not erased, and forcing the full density deletes
+	# everything past the far plane of the fog instead of hazing it.
+	env.fog_density = clampf(doc.fog_max_density, 0.0, 1.0)
+	env.fog_depth_curve = 1.0
+	# Fog over the sky as well would flatten the one thing that is meant to be behind
+	# everything, and the sky is already the colour the fog fades into.
+	env.fog_sky_affect = 0.0
 
 
 ## A sky from what the world said about its own light.

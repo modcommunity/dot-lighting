@@ -11,7 +11,7 @@ extends Node3D
 ## failure this family has shipped more than once.
 
 const EXPECTED_SECTIONS := 10
-const EXPECTED_CHECKS := 116
+const EXPECTED_CHECKS := 119
 
 var _passed := 0
 var _failed := 0
@@ -217,6 +217,19 @@ func _rig() -> void:
 	_check(env.glow_hdr_threshold < 1.0,
 		"and a threshold under 1.0, or a baked world would never bloom at all")
 	_check(env.fog_enabled, "and fog")
+	# apply_fog is what environment() now calls; applying it again to a bare Environment in
+	# metres (as weather does) must write the same fields, and off must switch fog off.
+	var bare := Environment.new()
+	var metre_doc := DotLightDocument.from_dictionary({"fog": {"enabled": true,
+		"colour": [0.5, 0.6, 0.7], "start": 5.0, "end": 90.0, "max_density": 0.4}})
+	DotLightRig.apply_fog(bare, metre_doc, 1.0)
+	_check(bare.fog_enabled and is_equal_approx(bare.fog_depth_end, 90.0)
+		and is_equal_approx(bare.fog_density, 0.4) and bare.fog_light_color.is_equal_approx(Color(0.5, 0.6, 0.7)),
+		"apply_fog writes a bare Environment in metres: colour, depth and the document's own density")
+	DotLightRig.apply_fog(bare, DotLightDocument.new(), 1.0)
+	_check(not bare.fog_enabled, "and a document with no fog switches it off")
+	_check(is_equal_approx(env.fog_depth_end, DotLightRig.metres(20000.0)),
+		"while environment() still converts map units (%.1f m)" % env.fog_depth_end)
 	# The same invariant the flat background used to carry, moved to where the horizon
 	# now is. A sky whose horizon is not the colour the fog fades into draws a visible
 	# line along every ridge in the world, which is the whole reason either is tied to
