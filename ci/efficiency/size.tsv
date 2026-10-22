@@ -1,0 +1,4 @@
+# size
+# Baselines only shrink: scripts/<gate> --update lowers or drops entries and refuses to add.
+addons/dot_lighting/runtime/dot_contact_shade.gd::_crease	101
+examples/lighting_selftest.gd::_rig	99

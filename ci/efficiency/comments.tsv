@@ -1,0 +1,15 @@
+# comments
+# Baselines only shrink: scripts/<gate> --update lowers or drops entries and refuses to add.
+addons/dot_lighting/bake/dot_light_bake.gd::long_block	3
+addons/dot_lighting/bake/dot_lightmap_sheet.gd::long_block	1
+addons/dot_lighting/core/dot_light_document.gd::long_block	6
+addons/dot_lighting/core/dot_light_profile.gd::long_block	10
+addons/dot_lighting/dot_lighting_api.gd::long_block	2
+addons/dot_lighting/dot_lighting_plugin.gd::long_block	1
+addons/dot_lighting/editor/dot_light_bake_runner.gd::long_block	1
+addons/dot_lighting/runtime/dot_contact_shade.gd::banner	1
+addons/dot_lighting/runtime/dot_contact_shade.gd::long_block	2
+addons/dot_lighting/runtime/dot_light_rig.gd::long_block	10
+addons/dot_lighting/runtime/dot_light_zone.gd::long_block	3
+examples/lighting_selftest.gd::history	1
+examples/lighting_selftest.gd::long_block	4
