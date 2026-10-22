@@ -20,5 +20,7 @@ extends RefCounted
 #    light for a world built in code, and the editor bake runner behind --dot-bake-lightmaps.
 # 6: DotLightRig.apply_fog(env, doc, metres_per_unit): the fog half of environment(), for a system
 #    (weather) that changes the fog of a world that is already running.
-const LEVEL := 6
+# 7: DotLightBake.components, first_difference and scan; attach and prepare take the parts, so a stale
+#    WARN names the first component that differs. fingerprint ignores environment/props and rounds floats.
+const LEVEL := 7
 const OLDEST := 1

@@ -86,7 +86,7 @@ func _bake(scene: String) -> String:
 
 	var ms := Time.get_ticks_msec() - started
 	var stored := DotLightBake.store(gi.light_data, str(root.get_meta(DotLightBake.META_FINGERPRINT, "")),
-		str(root.get_meta(DotLightBake.META_OUT, "")))
+		str(root.get_meta(DotLightBake.META_OUT, "")), root.get_meta(DotLightBake.META_COMPONENTS, {}))
 
 	if not stored.ok:
 		return "baked but not stored: %s" % stored.error.message

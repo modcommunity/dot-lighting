@@ -44,11 +44,20 @@ const CHANNEL := "dot.lighting.bake"
 
 ## Bump when what a bake means changes (its settings, which lights are baked): every
 ## fingerprint includes it, so old files are refused as stale rather than drawn wrong.
-const VERSION := 1
+const VERSION := 2
 
 ## Where a bake scene says what it was built from and where its output goes.
 const META_FINGERPRINT := &"dot_light_fingerprint"
 const META_OUT := &"dot_light_out"
+## Per-component hashes (name to sha256) beside the fingerprint, so a stale bake can say which part moved.
+const META_COMPONENTS := &"dot_light_components"
+
+## Top-level parts [method fingerprint] leaves out: the sky and fog are drawn live, props and
+## dynamic nodes move. A bake only depends on static lights and static geometry.
+const IGNORED_PARTS: Array[String] = ["environment", "props", "dynamic", "sky", "fog", "weather", "ambient"]
+
+## Floats are rounded to this step before hashing, so a re-saved document does not change it.
+const FLOAT_STEP := 0.001
 
 ## The [LightmapGI] node's name, the same in the bake scene and at runtime: the lightmap names
 ## its meshes by path from it.
@@ -60,9 +69,115 @@ const MAX_TEXTURE_SIZE := 2048
 
 ## A stable hash of [param parts] (anything JSON can hold) together with this file's and
 ## [DotLightmapSheet]'s versions. The bake and the runtime compute it from the same document.
+## A Dictionary's [constant IGNORED_PARTS] are dropped, floats rounded and Vectors flattened.
 static func fingerprint(parts: Variant) -> String:
-	var text := JSON.stringify([VERSION, DotLightmapSheet.VERSION, parts], "", true, true)
+	var text := JSON.stringify([VERSION, DotLightmapSheet.VERSION, _canonical(_relevant(parts))], "", true, true)
 	return text.sha256_text()
+
+
+## One sha256 per top-level key of [param parts] (after the same dropping and rounding as
+## [method fingerprint]); stored with a bake to name what changed.
+static func components(parts: Dictionary) -> Dictionary:
+	var out := {}
+	var kept: Dictionary = _relevant(parts)
+	for key in kept:
+		out[str(key)] = JSON.stringify(_canonical(kept[key]), "", true, true).sha256_text()
+	return out
+
+
+## The first component (sorted by name) that differs between two [method components] results,
+## or "" when they agree.
+static func first_difference(baked: Dictionary, now: Dictionary) -> String:
+	var names := {}
+	for key in baked:
+		names[str(key)] = true
+	for key in now:
+		names[str(key)] = true
+	var sorted := names.keys()
+	sorted.sort()
+	for key in sorted:
+		if baked.get(key, "") != now.get(key, ""):
+			return str(key)
+	return ""
+
+
+## What the editor-side fingerprint should be made from, for a scene rather than a document:
+## static lights (transform, energy, colour) and static meshes (transform, UV2 hash), under
+## [param root], in a stable order. Nodes that are not baked (dynamic lights, props, `GI_MODE_DISABLED`
+## or `GI_MODE_DYNAMIC` meshes) are not in it, so adding them leaves a bake valid.
+static func scan(root: Node3D) -> Dictionary:
+	var lights: Array = []
+	var meshes: Array = []
+	_scan_into(root, root, lights, meshes)
+	lights.sort_custom(func(a, b): return a[0] < b[0])
+	meshes.sort_custom(func(a, b): return a[0] < b[0])
+	return {"lights": lights, "meshes": meshes}
+
+
+static func _scan_into(root: Node3D, node: Node, lights: Array, meshes: Array) -> void:
+	for child in node.get_children():
+		if child is Light3D and child.light_bake_mode != Light3D.BAKE_DISABLED:
+			var light := child as Light3D
+			lights.append([str(root.get_path_to(light)), _relative(root, light),
+				light.light_energy, light.light_color, int(light.light_bake_mode)])
+		elif child is MeshInstance3D and child.gi_mode == GeometryInstance3D.GI_MODE_STATIC and child.mesh != null:
+			var mi := child as MeshInstance3D
+			var uv := PackedVector2Array()
+			for surface in mi.mesh.get_surface_count():
+				var arrays := mi.mesh.surface_get_arrays(surface)
+				if arrays.size() > Mesh.ARRAY_TEX_UV2 and arrays[Mesh.ARRAY_TEX_UV2] != null:
+					uv.append_array(arrays[Mesh.ARRAY_TEX_UV2])
+			meshes.append([str(root.get_path_to(mi)), _relative(root, mi),
+				mi.mesh.get_surface_count(), _canonical(uv).hash()])
+		_scan_into(root, child, lights, meshes)
+
+
+## [param node]'s transform in [param root]'s space, from local transforms so it works outside a tree.
+static func _relative(root: Node3D, node: Node3D) -> Transform3D:
+	var t := Transform3D.IDENTITY
+	var n: Node3D = node
+	while n != null and n != root:
+		t = n.transform * t
+		n = n.get_parent() as Node3D
+	return t
+
+
+static func _relevant(parts: Variant) -> Variant:
+	if parts is Dictionary:
+		var kept := {}
+		for key in parts:
+			if not IGNORED_PARTS.has(str(key)):
+				kept[key] = parts[key]
+		return kept
+	return parts
+
+
+## Rounded floats (a whole one becomes an int, so 1 and 1.0 agree), Vectors, Colors and
+## Transforms as flat arrays, containers recursed.
+static func _canonical(v: Variant) -> Variant:
+	match typeof(v):
+		TYPE_FLOAT:
+			var r := snappedf(v, FLOAT_STEP)
+			return int(r) if is_equal_approx(r, roundf(r)) and absf(r) < 1e15 else r
+		TYPE_ARRAY:
+			return (v as Array).map(_canonical)
+		TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY:
+			return Array(v).map(_canonical)
+		TYPE_DICTIONARY:
+			var out := {}
+			for key in v:
+				out[str(key)] = _canonical(v[key])
+			return out
+		TYPE_VECTOR2:
+			return [_canonical(v.x), _canonical(v.y)]
+		TYPE_VECTOR3:
+			return [_canonical(v.x), _canonical(v.y), _canonical(v.z)]
+		TYPE_COLOR:
+			return [_canonical(v.r), _canonical(v.g), _canonical(v.b), _canonical(v.a)]
+		TYPE_TRANSFORM3D:
+			return _canonical([v.basis.x, v.basis.y, v.basis.z, v.origin])
+		_:
+			return v
 
 
 ## Whether this process can draw a lightmap at all.
@@ -75,7 +190,9 @@ static func can_draw() -> bool:
 ## means nothing changed: `CODE_UNSUPPORTED` (nothing draws here), `CODE_IO` (no bake for
 ## this world, said at DEBUG), `CODE_INTEGRITY` (stale: baked from other geometry, a WARN) or
 ## `CODE_PARSE` (not a bake, a WARN).
-static func attach(host: Node3D, path: String, expected: String) -> DotResult:
+## Pass [param expected_parts] (what [method fingerprint] was made from) and a stale WARN names the
+## first component that differs.
+static func attach(host: Node3D, path: String, expected: String, expected_parts: Dictionary = {}) -> DotResult:
 	if not can_draw():
 		return DotResult.fail(DotError.CODE_UNSUPPORTED, "nothing draws a lightmap in a headless process")
 
@@ -92,8 +209,14 @@ static func attach(host: Node3D, path: String, expected: String) -> DotResult:
 	var baked_from := str(data.get_meta(META_FINGERPRINT, ""))
 
 	if baked_from != expected:
+		var baked_parts: Dictionary = data.get_meta(META_COMPONENTS, {})
+		var which := first_difference(baked_parts, components(expected_parts)) if not expected_parts.is_empty() else ""
+		if which == "" and baked_parts.is_empty():
+			which = "(no components stored: baked by an older tool, or the version changed)"
+		elif which == "" and not expected_parts.is_empty():
+			which = "(version or settings, parts agree)"
 		DotLog.warn(CHANNEL, "a bake is stale (its world changed since); the world is drawn with its live lights", {
-			"path": path, "baked": baked_from.left(12), "now": expected.left(12),
+			"path": path, "baked": baked_from.left(12), "now": expected.left(12), "first_difference": which,
 		})
 		return DotResult.fail(DotError.CODE_INTEGRITY, "%s was baked from different geometry" % path)
 
@@ -115,7 +238,8 @@ static func attach(host: Node3D, path: String, expected: String) -> DotResult:
 ## [param fp] and [param out_path] on [param root] for [method store]. [param settings] may set
 ## `quality` (a LightmapGI.BakeQuality), `bounces`, `texel_scale`, `probes` (a
 ## LightmapGI.GenerateProbes) and `denoise`.
-static func prepare(root: Node3D, fp: String, out_path: String, settings: Dictionary = {}) -> LightmapGI:
+## [param parts] (optional) are what [param fp] was made from; their [method components] ride along.
+static func prepare(root: Node3D, fp: String, out_path: String, settings: Dictionary = {}, parts: Dictionary = {}) -> LightmapGI:
 	var gi := LightmapGI.new()
 	gi.name = NODE_NAME
 	gi.quality = int(settings.get("quality", LightmapGI.BAKE_QUALITY_MEDIUM))
@@ -129,13 +253,15 @@ static func prepare(root: Node3D, fp: String, out_path: String, settings: Dictio
 	root.add_child(gi)
 	root.set_meta(META_FINGERPRINT, fp)
 	root.set_meta(META_OUT, out_path)
+	if not parts.is_empty():
+		root.set_meta(META_COMPONENTS, components(parts))
 	return gi
 
 
 ## Offline, after the editor baked: [param data] (the editor's `.lmbake`) as one self-contained
 ## file at [param out_path], stamped with [param fp]. Needs a rendering device (the textures'
 ## pixels are read back from it), so it runs in the editor, never headless.
-static func store(data: LightmapGIData, fp: String, out_path: String) -> DotResult:
+static func store(data: LightmapGIData, fp: String, out_path: String, parts_hashes: Dictionary = {}) -> DotResult:
 	if data == null:
 		return DotResult.fail(DotError.CODE_INVALID, "no light data to store")
 
@@ -178,6 +304,7 @@ static func store(data: LightmapGIData, fp: String, out_path: String) -> DotResu
 	var out := data.duplicate() as LightmapGIData
 	out.set_lightmap_textures([array])
 	out.set_meta(META_FINGERPRINT, fp)
+	out.set_meta(META_COMPONENTS, parts_hashes)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(out_path.get_base_dir()))
 	var saved := ResourceSaver.save(out, out_path, ResourceSaver.FLAG_COMPRESS)
 

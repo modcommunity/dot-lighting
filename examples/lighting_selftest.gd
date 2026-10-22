@@ -10,8 +10,8 @@ extends Node3D
 ## that had already announced itself. A suite reporting "0 failed" with checks missing is a
 ## failure this family has shipped more than once.
 
-const EXPECTED_SECTIONS := 10
-const EXPECTED_CHECKS := 119
+const EXPECTED_SECTIONS := 11
+const EXPECTED_CHECKS := 128
 
 var _passed := 0
 var _failed := 0
@@ -32,6 +32,7 @@ func _ready() -> void:
 	_zone()
 	_contact_shade()
 	_bake()
+	_bake_stale()
 	print("")
 	_check(_sections == EXPECTED_SECTIONS,
 		"every section ran to its last line (%d of %d)" % [_sections, EXPECTED_SECTIONS])
@@ -595,4 +596,61 @@ func _bake() -> void:
 	var none := DotLightBake.store(null, fp, "user://x.res")
 	_check(not none.ok and none.error.code == DotError.CODE_INVALID, "storing nothing is refused")
 	host.free()
+	_done()
+
+
+func _bake_stale() -> void:
+	_section("baked light: what makes a bake stale")
+	var root := Node3D.new()
+	var wall := MeshInstance3D.new()
+	wall.name = "Wall"
+	var quad := QuadMesh.new()
+	var arrays := quad.get_mesh_arrays()
+	arrays[Mesh.ARRAY_TEX_UV2] = PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	wall.mesh = mesh
+	wall.gi_mode = GeometryInstance3D.GI_MODE_STATIC
+	root.add_child(wall)
+	var lamp := OmniLight3D.new()
+	lamp.name = "Lamp"
+	lamp.light_bake_mode = Light3D.BAKE_STATIC
+	root.add_child(lamp)
+
+	var before := DotLightBake.scan(root)
+	var fp := DotLightBake.fingerprint(before)
+	_check(fp == DotLightBake.fingerprint(DotLightBake.scan(root)), "a scan hashes the same twice")
+	_check(DotLightBake.first_difference(DotLightBake.components(before), DotLightBake.components(before)) == "",
+		"and its components agree with themselves")
+
+	var extra := OmniLight3D.new()
+	extra.light_bake_mode = Light3D.BAKE_DISABLED
+	root.add_child(extra)
+	var prop := MeshInstance3D.new()
+	prop.mesh = BoxMesh.new()
+	prop.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	root.add_child(prop)
+	root.add_child(Node3D.new())
+	_check(DotLightBake.fingerprint(DotLightBake.scan(root)) == fp, "unrelated nodes (a dynamic light, a prop, a plain node) leave it valid")
+
+	var with_env := {"boxes": [[1, 2.0004, 3]], "environment": {"fog": 1}, "props": [1]}
+	var other_env := {"boxes": [[1, 2, 3]], "environment": {"fog": 9}, "props": []}
+	_check(DotLightBake.fingerprint(with_env) == DotLightBake.fingerprint(other_env),
+		"the environment and props are ignored, and floats rounded to a millimetre")
+	_check(DotLightBake.fingerprint({"boxes": [[1, 2.01, 3]]}) != DotLightBake.fingerprint(other_env), "a box moved 1 cm is stale")
+
+	lamp.position = Vector3(0, 1, 0)
+	var after := DotLightBake.scan(root)
+	_check(DotLightBake.fingerprint(after) != fp, "moving a light makes it stale")
+	_check(DotLightBake.first_difference(DotLightBake.components(before), DotLightBake.components(after)) == "lights",
+		"and the first difference is named: lights")
+	lamp.position = Vector3.ZERO
+	lamp.light_energy = 2.0
+	_check(DotLightBake.fingerprint(DotLightBake.scan(root)) != fp, "so does a light's energy")
+	lamp.light_energy = 1.0
+	wall.position = Vector3(1, 0, 0)
+	var moved := DotLightBake.scan(root)
+	_check(DotLightBake.first_difference(DotLightBake.components(before), DotLightBake.components(moved)) == "meshes",
+		"a moved static mesh names meshes")
+	root.free()
 	_done()
