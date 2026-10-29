@@ -39,8 +39,6 @@ extends RefCounted
 ## [code]strength[/code] deep when the box stands at least that tall, and narrower and fainter
 ## below it, so a rug makes no ring and a wall makes a full one.
 
-const CHANNEL := "lighting.shade"
-
 ## How far a band reaches from its crease, in metres.
 const WIDTH := 0.45
 
