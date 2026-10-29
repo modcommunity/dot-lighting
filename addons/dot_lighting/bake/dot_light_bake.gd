@@ -101,10 +101,9 @@ static func first_difference(baked: Dictionary, now: Dictionary) -> String:
 	return ""
 
 
-## What the editor-side fingerprint should be made from, for a scene rather than a document:
-## static lights (transform, energy, colour) and static meshes (transform, UV2 hash), under
-## [param root], in a stable order. Nodes that are not baked (dynamic lights, props, `GI_MODE_DISABLED`
-## or `GI_MODE_DYNAMIC` meshes) are not in it, so adding them leaves a bake valid.
+## Fingerprint parts for a scene under [param root]: static lights and static meshes (UV2 hash)
+## in a stable order. Unbaked nodes (dynamic lights, props, non-static GI meshes) are left out,
+## so adding them leaves a bake valid.
 static func scan(root: Node3D) -> Dictionary:
 	var lights: Array = []
 	var meshes: Array = []
