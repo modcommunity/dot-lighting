@@ -11,7 +11,8 @@ extends Node3D
 ## failure this family has shipped more than once.
 
 const EXPECTED_SECTIONS := 11
-const EXPECTED_CHECKS := 128
+## Includes the count check itself, so it equals the final "passed" figure.
+const EXPECTED_CHECKS := 129
 
 var _passed := 0
 var _failed := 0
@@ -36,8 +37,9 @@ func _ready() -> void:
 	print("")
 	_check(_sections == EXPECTED_SECTIONS,
 		"every section ran to its last line (%d of %d)" % [_sections, EXPECTED_SECTIONS])
-	_check(_passed + _failed == EXPECTED_CHECKS,
-		"and the suite ran all %d of its checks (%d)" % [EXPECTED_CHECKS, _passed + _failed])
+	var ran := _passed + _failed + 1
+	_check(ran == EXPECTED_CHECKS,
+		"and the suite ran all %d of its checks (%d)" % [EXPECTED_CHECKS, ran])
 	print("")
 	print("%d passed, %d failed" % [_passed, _failed])
 	for line in _failures:
