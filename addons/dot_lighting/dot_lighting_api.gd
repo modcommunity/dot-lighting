@@ -22,5 +22,6 @@ extends RefCounted
 #    (weather) that changes the fog of a world that is already running.
 # 7: DotLightBake.components, first_difference and scan; attach and prepare take the parts, so a stale
 #    WARN names the first component that differs. fingerprint ignores environment/props and rounds floats.
-const LEVEL := 7
+# 8: DotLightProfile.for_platform(): low() on a phone, web() in a desktop browser, high() otherwise.
+const LEVEL := 8
 const OLDEST := 1

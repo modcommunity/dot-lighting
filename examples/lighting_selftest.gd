@@ -12,7 +12,7 @@ extends Node3D
 
 const EXPECTED_SECTIONS := 11
 ## Includes the count check itself, so it equals the final "passed" figure.
-const EXPECTED_CHECKS := 129
+const EXPECTED_CHECKS := 131
 
 var _passed := 0
 var _failed := 0
@@ -184,6 +184,14 @@ func _profiles() -> void:
 	# scales with how much geometry is in frame; glow is a fixed cost in screen pixels.
 	_check(web.glow and not web.sun_shadows,
 		"web keeps glow and drops shadows, which is the expensive one there")
+	var here := DotLightProfile.for_platform()
+	var expect := DotLightProfile.web() if OS.has_feature("web") else DotLightProfile.high()
+	if DotPlatform.is_mobile():
+		expect = DotLightProfile.low()
+	_check(here.glow == expect.glow and here.sun_shadows == expect.sun_shadows,
+		"for_platform picks this machine's stock profile")
+	_check(not DotLightProfile.low().glow and DotLightProfile.low().sun_shadows == false,
+		"and a phone's profile (low) draws neither glow nor shadows")
 	_done()
 
 

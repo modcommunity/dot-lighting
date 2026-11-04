@@ -131,7 +131,7 @@ static func is_compatibility() -> bool:
 ## A game changes what it needs afterwards (shadows on in a browser for a small map, the sky
 ## under the horizon for a floating one); everything here is a field.
 static func painted() -> DotLightProfile:
-	var p := web() if OS.has_feature("web") else high()
+	var p := for_platform()
 	p.tonemap_white = 3.0
 	p.contrast = 1.12
 	p.saturation = 1.15
@@ -146,6 +146,17 @@ static func painted() -> DotLightProfile:
 		p.fill_energy = 0.4
 		p.exposure = 0.95
 	return p
+
+
+## The stock profile for this machine: a phone (native, or a phone's browser) gets [method low],
+## a desktop browser [method web], everything else [method high]. Games call this and never
+## test the platform themselves.
+static func for_platform() -> DotLightProfile:
+	if DotPlatform.is_mobile() or OS.has_feature("web_android") or OS.has_feature("web_ios"):
+		return low()
+	if DotPlatform.is_web():
+		return web()
+	return high()
 
 
 ## Everything on. A desktop.
