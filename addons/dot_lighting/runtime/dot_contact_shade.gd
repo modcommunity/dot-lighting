@@ -12,32 +12,18 @@ extends RefCounted
 ## add_child(DotContactShade.node(boxes))          # one mesh, built once at load
 ## [/codeblock]
 ##
-## [b]A darkening overlay, not vertex colours on the game's meshes.[/b] Every painted game
-## builds its boxes its own way (SurfaceTool batches, BoxMesh nodes, MultiMeshes) with its own
-## materials, and a box's face is two triangles: a vertex colour on a 10 m wall is a 10 m
-## gradient, not a shade at its foot. So this builds its own thin bands, a few millimetres off
-## each face, in one unshaded mesh: black at an alpha of (1 - the vertex's grey), which is the
-## world behind it times that grey. Multiplying commutes, so the bands need no sorting and
-## overlapping bands deepen the shade the way two nearby walls do. One draw call for a whole
-## map, no lights, no textures, nothing per frame; the vertex shader pulls it a fraction toward
-## the camera and the fragment fades it out with distance, where its z-fighting would show.
-## [b]Not `blend_mul`[/b], which was the first version: with glow on, the Compatibility renderer
-## keeps the scene scaled down in its buffer, a multiplied white drew a fifth of the wall behind
-## it, and every band was black.
+## [b]An overlay, not vertex colours on the game's meshes[/b]: a box face is two triangles, so a
+## vertex colour on a 10 m wall is a 10 m gradient. This builds thin bands a few millimetres off each
+## face in one unshaded mesh, black at alpha (1 - grey), so overlapping bands deepen like two nearby
+## walls and need no sorting. One draw call per map; the vertex shader pulls it toward the camera and
+## the fragment fades it with distance. Not `blend_mul`: with glow on, Compatibility drew every band black.
 ##
-## [b]Where a crease is.[/b] For every face F of a box B and every box A that crosses or
-## touches F's plane and sticks out of it, A's cross-section in that plane is a rectangle; along
-## each of its edges, where F carries on past the edge, there is a concave corner: a band on F
-## outside the rectangle (the band up A's side face is the same crease found from that face,
-## with the two boxes' parts swapped). Two floor tiles side by side make no band (F does not carry on past the seam), a wall sunk into the floor makes the
-## same crease as one standing on it, and a box against a wall shades the wall round its outline.
-## A must have one axis along F's normal (yawed boxes on a floor, not tilted ones); its
-## cross-section's edges are clipped to F exactly when its axes are F's, and kept only when
-## wholly on F when they are not.
+## [b]Where a crease is[/b]: for each face F of B and each box A that touches F's plane and sticks out
+## of it, a band lies on F outside A's cross-section along each edge where F carries on. Floor tiles
+## side by side make no band. A needs an axis along F's normal (yawed boxes, not tilted ones).
 ##
-## [b]How dark is how much sticks out.[/b] A band is [code]width[/code] wide and
-## [code]strength[/code] deep when the box stands at least that tall, and narrower and fainter
-## below it, so a rug makes no ring and a wall makes a full one.
+## [b]How dark[/b]: a band is [code]width[/code] wide and [code]strength[/code] deep when the box
+## stands at least that tall, and fainter below, so a rug makes no ring.
 
 ## How far a band reaches from its crease, in metres.
 const WIDTH := 0.45
@@ -87,9 +73,8 @@ void fragment() {
 
 
 ## One box for [method build]: [param transform] at its centre, [param size] its full size.
-## [param casts]: it darkens what it meets. [param shaded]: its own faces take bands. A
-## furniture prop's bounding box casts and is not shaded (bands on a box nobody can see would
-## float round the chair); glass or water does neither.
+## [param casts]: it darkens what it meets. [param shaded]: its own faces take bands. A prop's
+## bounding box casts and is not shaded; glass or water does neither.
 static func box(transform: Transform3D, size: Vector3, casts: bool = true, shaded: bool = true) -> Dictionary:
 	return {"transform": transform, "size": size, "casts": casts, "shaded": shaded}
 
@@ -151,8 +136,7 @@ static func build(boxes: Array, width: float = WIDTH, strength: float = STRENGTH
 		if not b.is_empty():
 			parsed.append(b)
 
-	# Broad phase: boxes by the cells their bounds cover, so each face is tried only against
-	# boxes near it.
+	# Broad phase: boxes by the cells their bounds cover.
 	var cells := {}
 	for index in range(parsed.size()):
 		var bounds: AABB = parsed[index]["bounds"]
@@ -196,7 +180,6 @@ static func build(boxes: Array, width: float = WIDTH, strength: float = STRENGTH
 	return out
 
 
-# --- Internals --------------------------------------------------------------
 
 static func _parse(raw: Variant) -> Dictionary:
 	var transform := Transform3D.IDENTITY
@@ -319,9 +302,7 @@ static func _crease(b: Dictionary, axis: int, side: float, a: Dictionary, width:
 			full[m] = true
 		var shade := band_strength * clampf(depth / band_width, 0.0, 1.0)
 		var lift_f := normal * LIFT
-		# On F, outside A: dark at the crease, light at `depth`. Only F's half: the band up A's
-		# side face is the same crease seen from that face, made when A's face is F and this
-		# box is the one crossing it. Drawing both here drew every crease twice as dark.
+		# On F, outside A: dark at the crease, light at `depth`. Only F's half; the other half is made from A's face.
 		_strip(out, edge_centre + t * from + lift_f, edge_centre + t * to + lift_f, m, depth, shade)
 		out["bands"] = int(out["bands"]) + 1
 

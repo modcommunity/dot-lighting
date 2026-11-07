@@ -8,8 +8,7 @@ extends Node3D
 ## A world built from an imported map does not need this — it calls [DotLightRig.apply]
 ## with the document its manifest already carries — and that is the usual case here.
 ##
-## [b]The node is not the lighting.[/b] It makes the lighting and steps out of the way, so
-## nothing in a scene holds a reference to something a map change is about to replace.
+## The node makes the lighting and steps out of the way, so nothing holds a stale reference.
 
 const CHANNEL := "lighting"
 
@@ -50,20 +49,14 @@ func _ready() -> void:
 ## The document this node describes, from its file if it has a readable one and from its
 ## exports otherwise.
 ##
-## [b]A file that fails to parse falls back to the exports rather than to nothing.[/b] A
-## world with no lighting at all is a black screen, which reads as a broken build; a world
-## with the inspector's lighting is visibly not what was asked for, which reads as the
-## missing file it is.
+## A file that fails to parse falls back to the exports: a black screen reads as a broken build.
 func document() -> DotLightDocument:
 	if not document_path.is_empty() and FileAccess.file_exists(document_path):
 		var text := FileAccess.get_file_as_string(document_path)
 		var parsed: Variant = JSON.parse_string(text)
 		if typeof(parsed) == TYPE_DICTIONARY:
 			return DotLightDocument.from_dictionary(parsed)
-		# DotLog, not push_warning: this is a runtime condition about content, not a
-		# programmer error, and push_warning drags an engine backtrace into a log where
-		# the interesting fact is the path. It also means a server shipping its log
-		# somewhere actually sees this one.
+		# DotLog, not push_warning: a content condition, not a programmer error, and it reaches server logs.
 		DotLog.warn(
 			CHANNEL,
 			"the lighting document would not parse; using the exported defaults",

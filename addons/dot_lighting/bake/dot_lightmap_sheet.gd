@@ -17,23 +17,13 @@ extends RefCounted
 ## mesh.lightmap_size_hint = sheet.size
 ## [/codeblock]
 ##
-## [b]Deterministic, and that is the whole reason this exists.[/b] A lightmap is a picture in
-## this mesh's UV2 space, baked once offline and loaded by every client. The client rebuilds the
-## mesh from the map's document, so it must come out with exactly the UV2 the bake saw, or the
-## light lands on the wrong faces. The engine's own unwrapper (`ArrayMesh.lightmap_unwrap`) is
-## editor-only (it is not in an export template) and gives no promise of the same layout twice;
-## this is plain arithmetic on the faces in the order they were added, the same on every
-## machine. Change the layout and bump [constant VERSION]: every bake's fingerprint includes it,
-## so an old bake is refused as stale instead of drawn on the wrong faces.
+## Deterministic, which is why it exists: the client must rebuild the UV2 the bake saw, and the
+## engine's unwrapper is editor-only and not repeatable. Plain arithmetic on the faces in order.
+## Change the layout and bump [constant VERSION]; old bakes are then refused as stale.
 ##
-## [b]A face is a parallelogram given by its corners in order[/b]: `a` to `b` is one edge (its
-## height on the sheet), `a` to `d` the other (its width); `c` is the corner opposite `a`. The
-## two triangles are written `a, c, b` and `a, d, c`, the winding game-zombie-zone's and
-## game-arena's box builders already emit (Godot's front face is clockwise seen from outside).
-##
-## [b]Packed on shelves, tallest first, with [member padding] texels round every face[/b], so a
-## filtered sample at a face's edge reads its own light and not the neighbour's. A thin face (a
-## kerb's side, a wall's top) still gets at least one texel.
+## A face is a parallelogram by its corners: `a` to `b` is its height on the sheet, `a` to `d` its
+## width, `c` opposite `a`; triangles `a, c, b` and `a, d, c` (clockwise from outside).
+## Shelf-packed tallest first with [member padding] texels round each face; at least one texel.
 
 ## Bump when the layout changes (see the class notes).
 const VERSION := 1
@@ -87,8 +77,7 @@ func pack() -> Vector2i:
 		area += w * h
 		widest = maxi(widest, w)
 
-	# Tallest first, the order added breaking ties: sort_custom is not stable, and a layout that
-	# depends on the sort's internals is not one two machines agree on.
+	# Tallest first, ties by order added: sort_custom is not stable.
 	order.sort_custom(func(x: int, y: int) -> bool:
 		var hx: int = _faces[x][6]
 		var hy: int = _faces[y][6]
