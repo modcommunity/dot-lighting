@@ -4,19 +4,13 @@ extends RefCounted
 ## Baked light for a world a game builds in code: the offline half writes one file per map, the
 ## runtime half finds it, checks it was baked from this geometry, and lays it over the world.
 ##
-## [b]Why a world built in code needs this.[/b] A map generated from a document at load time
-## does not exist in the editor, so the editor has nothing to bake. The offline half makes it
-## exist for a moment: the game builds the map exactly as a client would, saves the drawn half
-## as a scene with a [LightmapGI] in it ([method prepare]), and the editor bakes that scene
-## (`bake/bake.sh`, which drives dot-lighting's editor plugin). [method store] then turns the
-## editor's output into ONE self-contained resource, which the game ships in its pack.
+## A world generated at load does not exist in the editor, so the offline half builds it, saves
+## the drawn half as a scene with a [LightmapGI] ([method prepare]), the editor bakes it
+## (`bake/bake.sh`), and [method store] writes ONE self-contained resource for the pack.
 ##
-## [b]At runtime the client rebuilds the same meshes, under the same node names[/b] (a lightmap
-## names its meshes by path from the [LightmapGI]), with the same UV2 ([DotLightmapSheet]), and
-## calls [method attach]. The file carries a fingerprint of what it was baked from; the game
-## computes the same fingerprint from its document, and a file that disagrees is refused with a
-## WARN and the world drawn with its live lights, as it was before there were bakes. A map with
-## no bake at all (a workshop map, a new one) is the same fallback, said at DEBUG.
+## At runtime the client rebuilds the same meshes under the same node names, with the same UV2
+## ([DotLightmapSheet]), and calls [method attach]. A file whose fingerprint disagrees is refused
+## with a WARN and the live lights are used; no bake at all is the same fallback, said at DEBUG.
 ##
 ## [codeblock]
 ## var res := DotLightBake.attach(map_node, "res://lightmaps/%s.res" % id, my_fingerprint)
@@ -24,21 +18,10 @@ extends RefCounted
 ##     for lamp in my_lamps: lamp.light_bake_mode = Light3D.BAKE_STATIC   # baked, not drawn twice
 ## [/codeblock]
 ##
-## [b]One file, no import, no external reference.[/b] The editor writes a `.lmbake` that points
-## at an `.exr` which only becomes a texture through the import step, as a VRAM-compressed
-## (BPTC) array a browser may not decode. A delivered pack is never re-imported and mounts under
-## its own `res://dot_cloud/<id>/<version>/` prefix, so every one of those indirections is a way
-## for the light to be missing in the pack and present in the repository. [method store] reads
-## the EXR's pixels, keeps them HDR in RGB9E5 (four bytes a texel, which WebGL 2 and Vulkan both
-## sample), embeds them, and saves the result zstd-compressed.
-##
-## [b]Never on a server.[/b] A headless process has nothing to draw a lightmap with, and the
-## file is pixels; [method attach] refuses with `CODE_UNSUPPORTED` and touches nothing.
-##
-## [b]What a bake holds and what it does not.[/b] Lights the caller marked `BAKE_STATIC` in the
-## bake scene are baked whole (direct, shadows, bounce) and should be set `BAKE_STATIC` at
-## runtime too: a static light skips lightmapped surfaces and still lights everything moving.
-## `BAKE_DYNAMIC` lights (a sun a day cycle turns) give their bounce to the bake and stay live.
+## One file, no import, no external reference: the editor's `.lmbake` points at an `.exr` that only
+## becomes a (BPTC, maybe undecodable) texture on import, and a pack is never re-imported. [method store]
+## embeds the EXR's pixels as RGB9E5, zstd-compressed. Never on a server: [method attach] refuses
+## with `CODE_UNSUPPORTED`. `BAKE_STATIC` lights are baked whole; `BAKE_DYNAMIC` give bounce and stay live.
 
 const CHANNEL := "dot.lighting.bake"
 
@@ -273,8 +256,7 @@ static func store(data: LightmapGIData, fp: String, out_path: String, parts_hash
 	var layers := source.get_layers()
 	var exr := source.resource_path
 
-	# The EXR the editor wrote, not the imported texture: that one is BPTC, which a browser may
-	# not decode, and HDR has to survive the trip.
+	# The EXR, not the imported texture: that one is BPTC, which a browser may not decode.
 	var whole := Image.load_from_file(ProjectSettings.globalize_path(exr)) if exr.get_extension() == "exr" else null
 	var images: Array[Image] = []
 

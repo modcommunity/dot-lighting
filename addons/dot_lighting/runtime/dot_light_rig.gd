@@ -7,17 +7,9 @@ extends RefCounted
 ## DotLightRig.apply(world_root, DotLightDocument.from_dictionary(manifest["lighting"]))
 ## [/codeblock]
 ##
-## [b]What this can and cannot change is worth being exact about, because it decides
-## whether the addon is doing anything at all.[/b] A world drawn from a BAKED lightmap has
-## its lighting in its textures: its materials are unshaded, and a directional light added
-## beside them lights nothing they own. The sun here therefore lights the CHARACTERS, the
-## props and anything else with an ordinary material — and what changes how the baked world
-## itself looks is the post-processing: the tone map, the fog, the glow and the colour
-## behind everything.
-##
-## That is not a limitation so much as the division of labour a baked world already has,
-## and those four are most of the difference between a faithful import and one that feels
-## like the engine it came from.
+## A baked world has its light in its textures, so the sun here lights characters, props and
+## anything with an ordinary material. What changes the baked world itself is the post-processing:
+## tone map, fog, glow and the background colour.
 
 ## Applies [param doc] under [param parent] and returns the sun it made.
 ##
@@ -47,9 +39,7 @@ static func apply(
 	light.light_color = doc.sun_colour
 
 	if doc.sun_brightness > 0.0:
-		# Soft-curved rather than linear because the range is nearly two orders of
-		# magnitude across ordinary content, and a player should not be squinting on one
-		# world and unable to see on the next.
+	# Soft-curved: the range is nearly two orders of magnitude across ordinary content.
 		light.light_energy = clampf(
 			sqrt(doc.sun_brightness / maxf(profile.brightness_reference, 1.0)), 0.35, 2.0)
 
@@ -64,12 +54,8 @@ static func apply(
 
 
 ## The shadowless light from the side of the sky the sun is not on; see
-## [member DotLightProfile.fill_energy].
-##
-## [param sun_rotation] is the sun's (a [DirectionalLight3D] shines down its own -Z). The fill
-## shines the opposite way across the ground and down at [member DotLightProfile.fill_elevation],
-## so it reaches exactly the faces the sun does not. A sun straight overhead has no "opposite
-## side"; the fill then comes from a fixed one, since any side separates the faces.
+## [member DotLightProfile.fill_energy]. [param sun_rotation] is the sun's. A sun straight
+## overhead has no opposite side, so the fill then comes from a fixed one.
 static func fill(doc: DotLightDocument, sun_rotation: Vector3, profile: DotLightProfile) -> DirectionalLight3D:
 	var travel := -Basis.from_euler(sun_rotation).z
 	var across := Vector3(-travel.x, 0.0, -travel.z)
@@ -87,24 +73,17 @@ static func fill(doc: DotLightDocument, sun_rotation: Vector3, profile: DotLight
 	# No glint: a second highlight on every glossy surface is the giveaway of a second sun.
 	light.light_specular = 0.0
 	light.shadow_enabled = false
-	# Not drawn in the sky. A procedural sky paints a disc for every directional light, and
-	# the fill's (dim, in the shade's colour) is darker than the blue around it: a black dot
-	# hanging in every frame, found in the first render.
+	# A procedural sky draws a disc for every directional light; the dim fill's is a black dot.
 	light.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
 	return light
 
 
 ## The rotation that points a [DirectionalLight3D] the way a Z-up world's sun points.
 ##
-## [b]The conversion is on the DIRECTION and not on the angles, and that is the whole
-## reason this is a function.[/b] The older BSP-family worlds are Z-up and left-handed and Godot
-## is Y-up and right-handed; a yaw in one is not a yaw in the other, so converting pitch
-## and yaw separately produces a sun that rises in the north and nothing about the result
-## looks wrong enough to question. Build the vector in the source convention, swap axes
-## once — `godot = (x, z, -y)` — and aim along it.
-##
-## A negative pitch is a sun in the sky, because the angle describes where the light GOES
-## rather than where it comes from.
+## Convert the DIRECTION, not the angles: the BSP-family worlds are Z-up left-handed, Godot is
+## Y-up right-handed, and converting pitch and yaw separately gives a sun rising in the north.
+## Build the vector in the source convention, swap axes once (`godot = (x, z, -y)`), aim along it.
+## A negative pitch is a sun in the sky: the angle is where the light goes.
 static func sun_rotation(pitch_degrees: float, yaw_degrees: float) -> Vector3:
 	var pitch := deg_to_rad(pitch_degrees)
 	var yaw := deg_to_rad(yaw_degrees)
@@ -114,10 +93,8 @@ static func sun_rotation(pitch_degrees: float, yaw_degrees: float) -> Vector3:
 
 ## The rotation of a light shining along [param direction].
 ##
-## A [DirectionalLight3D] shines down its own -Z, so this is `looking_at` — with the one
-## case that has no answer handled: a sun straight overhead is parallel to the default up
-## vector and `looking_at` cannot build a basis from two parallel vectors. Worlds with an
-## exactly vertical sun are common, not a corner case.
+## A [DirectionalLight3D] shines down -Z, so this is `looking_at`, except for a sun straight
+## overhead, where the up vector is parallel and no basis exists.
 static func aim_along(direction: Vector3) -> Vector3:
 	var forward := direction.normalized()
 	if forward.length_squared() < 0.5:
@@ -142,9 +119,7 @@ static func environment(
 	node.name = "Lighting"
 	var env := Environment.new()
 
-	# [b]The background follows the fog, and a world with fog and a different sky behind it
-	# has a visible seam along every horizon.[/b] Fog is what distance fades INTO, so the
-	# colour it fades into and the colour past the last surface have to be the same one.
+	# The background follows the fog: a different colour past the last surface is a seam at the horizon.
 	var horizon := doc.fog_colour if doc.fog_enabled else Color(0.55, 0.65, 0.80)
 	if profile.sky:
 		env.background_mode = Environment.BG_SKY
@@ -158,22 +133,18 @@ static func environment(
 	env.ambient_light_energy = profile.ambient_energy
 
 	if profile.tonemap:
-		# Godot defaults to LINEAR, which is not a tone map: it clips. A filmic shoulder is
-		# why a bright sky and a dark wall can both be readable in one frame instead of one
-		# being white and the other black.
+		# Godot defaults to LINEAR, which clips; a filmic shoulder keeps a bright sky and a dark wall readable.
 		env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 		env.tonemap_white = profile.tonemap_white
 	env.tonemap_exposure = profile.exposure
 
-	# Off unless asked: the adjustment pass is a full-screen pass, and a stock profile has
-	# nothing for it to do.
+	# Off unless asked: the adjustment pass is a full-screen pass.
 	if not is_equal_approx(profile.contrast, 1.0) or not is_equal_approx(profile.saturation, 1.0):
 		env.adjustment_enabled = true
 		env.adjustment_contrast = profile.contrast
 		env.adjustment_saturation = profile.saturation
 
-	# Forward+ only: the other renderers have no screen-space occlusion, and asking for it
-	# there is a no-op at best. The radius is a step's depth, so a box sits on its floor.
+	# Forward+ only. The radius is a step's depth, so a box sits on its floor.
 	if profile.ambient_occlusion and RenderingServer.get_current_rendering_method() == "forward_plus":
 		env.ssao_enabled = true
 		env.ssao_radius = 1.2
@@ -193,14 +164,8 @@ static func environment(
 	return node
 
 
-## Writes [param doc]'s fog onto an existing [param env], and switches fog off on it when the
-## document has none. This is what [method environment] does for its own environment, exposed
-## so a system that changes the fog while the world is running (weather) writes it the way a
-## map's lighting does, rather than building a second [WorldEnvironment] or a second opinion on
-## what the fog numbers mean.
-##
-## [param metres_per_unit] converts the document's start and end; pass [code]1.0[/code] for a
-## document already in metres.
+## Writes [param doc]'s fog onto [param env] (off when the document has none), so weather can
+## change the fog the way a map's lighting does. [param metres_per_unit] is 1.0 for metres.
 static func apply_fog(env: Environment, doc: DotLightDocument, metres_per_unit: float = METRES_PER_UNIT) -> void:
 	if env == null or doc == null:
 		return
@@ -210,46 +175,24 @@ static func apply_fog(env: Environment, doc: DotLightDocument, metres_per_unit: 
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_DEPTH
 	env.fog_light_color = doc.fog_colour
-	# A source world may write a negative start, meaning "from the camera". A negative
-	# depth here is not the same statement, so it is clamped rather than passed on.
+	# A negative start means "from the camera"; a negative depth does not, so clamp.
 	var start := maxf(doc.fog_start, 0.0)
 	env.fog_depth_begin = start * metres_per_unit
 	env.fog_depth_end = maxf(doc.fog_end, start + 1.0) * metres_per_unit
-	# [b]The document's own maximum, not 1.0.[/b] A source world says how opaque its
-	# fog is allowed to get and it is not always "completely": a world that says 0.4
-	# wants distance tinted, not erased, and forcing the full density deletes
-	# everything past the far plane of the fog instead of hazing it.
+	# The document's own maximum, not 1.0: a world saying 0.4 wants distance tinted, not erased.
 	env.fog_density = clampf(doc.fog_max_density, 0.0, 1.0)
 	env.fog_depth_curve = 1.0
-	# Fog over the sky as well would flatten the one thing that is meant to be behind
-	# everything, and the sky is already the colour the fog fades into.
+	# Fog over the sky would flatten it; the sky is already the colour the fog fades into.
 	env.fog_sky_affect = 0.0
 
 
-## A sky from what the world said about its own light.
-##
-## [b]The world named a sky and we cannot have it, so this is built from its numbers
-## instead.[/b] [member DotLightDocument.sky_name] is a texture set inside the game the
-## world was authored for; it is not in the file and copying it would be taking that
-## game's art. Everything needed to draw a convincing stand-in IS in the file, because
-## the same compiler that baked the lightmap was told the sun's angle and colour and the
-## colour the distance fades to.
-##
-## So: the fog colour is the horizon, because fog is what distance fades INTO and a
-## horizon that is any other colour draws a seam along every ridge. The top is the
-## world's own ambient — which in a source world is literally the colour of its sky,
-## since that is what the ambient term was measured from — unless the document names a
-## [member DotLightDocument.sky_top] of its own, for a world whose ambient was chosen for
-## the shade and is paler than its sky. The ground half is dark and
-## near-neutral rather than a second bright band: below the horizon of an enclosed level
-## there is geometry, and on the rare occasion there is not, a bright floor-coloured
-## band under a cliff edge reads as a hole.
+## A sky from the world's own numbers, since the named [member DotLightDocument.sky_name] is
+## another game's texture. The fog colour is the horizon, the top is [member DotLightDocument.sky_top]
+## or else the ambient, and the ground half is dark and neutral.
 static func _sky(doc: DotLightDocument, horizon: Color, below_horizon: bool = false) -> Sky:
 	var mat := ProceduralSkyMaterial.new()
 	mat.sky_horizon_color = horizon
-	# sky_top first, then the ambient, then a darker horizon: each is the best statement of
-	# the zenith the document makes. The ambient LIGHT is untouched by sky_top
-	# ([method environment] sets it from the ambient alone); only what is drawn changes.
+	# sky_top, then ambient, then a darker horizon. The ambient LIGHT is untouched by sky_top.
 	if doc.has_sky_top:
 		mat.sky_top_color = doc.sky_top
 	elif doc.has_ambient:
@@ -262,10 +205,7 @@ static func _sky(doc: DotLightDocument, horizon: Color, below_horizon: bool = fa
 	# [member DotLightProfile.sky_below_horizon].
 	mat.ground_bottom_color = mat.sky_top_color if below_horizon else horizon.darkened(0.7)
 	mat.ground_energy_multiplier = 1.0
-	# A disc only where there is a sun to put one. `sun_angle_max` is its angular size and
-	# `sun_curve` its falloff; these are a small bright sun rather than the default's wide
-	# soft one, because a baked world's shadows all have one hard direction and a diffuse
-	# disc in the sky disagrees with every one of them.
+	# A disc only where there is a sun: small and bright, to agree with the baked hard shadows.
 	if doc.has_sun:
 		mat.sun_angle_max = 3.0
 		mat.sun_curve = 0.12
@@ -273,18 +213,14 @@ static func _sky(doc: DotLightDocument, horizon: Color, below_horizon: bool = fa
 		mat.sun_angle_max = 0.0
 	var sky := Sky.new()
 	sky.sky_material = mat
-	# The sky is static: the sun does not move and neither does anything else in it, so
-	# the radiance map is generated once rather than per frame.
+	# The sky is static, so the radiance map is generated once.
 	sky.process_mode = Sky.PROCESS_MODE_QUALITY
 	sky.radiance_size = Sky.RADIANCE_SIZE_128
 	return sky
 
 
-## The family's one unit boundary, and the only place this addon crosses it.
-##
-## 0.75 inch per unit is the scale these worlds were authored at. It is duplicated here
-## rather than imported because the addon depends on dot-core alone and a game that owns
-## its own conversion passes metres in already.
+## The family's one unit boundary: 0.75 inch per unit. Duplicated rather than imported, as
+## the addon depends on dot-core alone.
 const METRES_PER_UNIT := 0.01905
 
 

@@ -5,16 +5,9 @@ extends Node
 ## dot-lighting's editor plugin when the editor is launched with
 ## `-- --dot-bake-lightmaps=res://<dir>` (`bake/bake.sh` does that); inert otherwise.
 ##
-## [b]Why the editor, and why it is driven through its own button.[/b] `LightmapGI.bake` is not
-## bound for scripts in 4.7: the only way in is the editor's "Bake Lightmaps" action, which asks
-## for a file and then bakes on the rendering device (Forward+ or Mobile; the Compatibility
-## renderer cannot bake, though it draws the result). So this opens each scene, selects its
-## [LightmapGI], presses the button, answers the file dialog with `<scene>.lmbake`, and when the
-## light data appears turns it into the shipped file ([method DotLightBake.store]). The press
-## and the answer both run synchronously; a bake that fails leaves no light data and is reported.
-##
-## Every outcome is one stdout line, `DOT_BAKE ok <scene> <ms> <bytes> <out>` or
-## `DOT_BAKE fail <scene> <why>`, which bake.sh reads; the editor exits 0 only if all baked.
+## `LightmapGI.bake` is not bound for scripts in 4.7, so this opens each scene, presses the
+## editor's "Bake Lightmaps" button, answers its file dialog with `<scene>.lmbake`, then calls
+## [method DotLightBake.store]. Output is `DOT_BAKE ok|fail ...` lines for bake.sh.
 
 const BUTTON_TEXT := "Bake Lightmaps"
 

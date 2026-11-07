@@ -6,9 +6,7 @@ extends EditorPlugin
 ## ([DotLightBake]); without it, nothing else. A game that bakes keeps it enabled in
 ## project.godot: the editor reads [editor_plugins] from there alone, not from override.cfg.
 ##
-## No autoloads. A lighting rig belongs to a world, and a process that runs a server and a
-## client — or two worlds while one is loading over the other — needs two of them; a global
-## would make that the one arrangement this family cannot have.
+## No autoloads: a server and a client in one process, or two worlds mid-load, need two rigs.
 
 const _ICON := "res://addons/dot_lighting/icon_placeholder.svg"
 

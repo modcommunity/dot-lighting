@@ -3,29 +3,20 @@ extends RefCounted
 
 ## What a world's lighting is, as data rather than as a scene.
 ##
-## [b]The whole addon exists because this is a document and not a node.[/b] Lighting that
-## lives in a `.tscn` can only ship with the build; lighting that is a dictionary can come
-## out of a map file, a content pack downloaded at runtime, a server's config, or a level
-## editor — and a game that reads one reads all four. Every consumer here takes one of
-## these and nothing else.
+## A document, not a node, so lighting can come from a map file, a content pack or a server.
+## Every consumer here takes one of these.
 ##
 ## [codeblock]
 ## var doc := DotLightDocument.from_dictionary(manifest.get("lighting", {}))
 ## DotLightRig.apply(world_root, doc)
 ## [/codeblock]
 ##
-## [b]Every field is optional and absent is not zero.[/b] A document with no sun keeps
-## whatever default the consumer holds; a document with a sun and no colour gets a white
-## one. That distinction is the reason [member has_sun] exists rather than callers testing
-## [member sun_colour] against something — "the map said nothing" and "the map said black"
-## are different instructions and a renderer must not confuse them.
+## Every field is optional and absent is not zero ([member has_sun] and friends): "the map said
+## nothing" and "the map said black" are different instructions.
 
 ## Degrees. The sun's own pitch and yaw, in the source world's convention.
 ##
-## [b]Stored unconverted, deliberately.[/b] A yaw in a Z-up left-handed world is not a yaw
-## in a Y-up right-handed one, and converting the two angles separately is how a sun ends
-## up rising in the north. [method DotLightRig.sun_direction] does the conversion on the
-## direction vector, once, where the handedness is written down.
+## Stored unconverted; [method DotLightRig.sun_direction] converts the direction vector once.
 var sun_pitch: float = 0.0
 var sun_yaw: float = 0.0
 var has_sun: bool = false
@@ -35,12 +26,8 @@ var sun_colour: Color = Color.WHITE
 
 ## What the source world's own light compiler was given.
 ##
-## [b]Not a multiplier and not a 0..1 fraction.[/b] A converted map's `light_environment` writes
-## this as the fourth component of `_light` and it ranges from 20 to 600 across eight
-## ordinary maps, so handing it to [member Light3D.light_energy] gives a sun six hundred
-## times too bright on one map and twenty times on the next. It is carried as it stands
-## and interpreted by the rig, because what a renderer should do with 600 is a renderer's
-## decision and folding it in here would throw the colour away with it.
+## Not a multiplier or a 0..1 fraction: `_light`'s fourth component, 20 to 600 across maps.
+## Carried as it stands; the rig decides what to do with it.
 var sun_brightness: float = 0.0
 
 ## Half-angle of the sun disc, in degrees. Softer shadows on a hazy map.
@@ -57,10 +44,8 @@ var fog_end: float = 0.0
 
 ## How opaque the fog is allowed to become at [member fog_end], 0..1.
 ##
-## [b]A real number the source world sets, and "1.0" is a default rather than the rule.[/b]
-## A world that says 0.4 wants its distance tinted; a consumer that assumes full density
-## erases everything past the fog's far plane instead of hazing it, which on a large open
-## level deletes the half of the map you are about to ride into.
+## The source world's own maximum, and 1.0 is a default: a world saying 0.4 wants distance
+## tinted, not erased.
 var fog_max_density: float = 1.0
 
 ## The name of the sky the source world used. Carried for a consumer that has one.
@@ -68,25 +53,16 @@ var sky_name: String = ""
 
 ## The colour of the top of the sky, when the world names one apart from its ambient.
 ##
-## [b]Optional, and absent keeps the old sky exactly.[/b] Without it the rig draws the
-## zenith in [member ambient_colour], which is right for a converted world: its ambient
-## term was measured from its own sky, so the two are the same colour by construction. It
-## is wrong for a world whose ambient was CHOSEN for the shade. A bright blue sky then
-## forces a blue fill at the ambient's strength, and every shaded face turns navy and every
-## yellow surface olive; the only way to keep the shade pale was a pale grey sky. Naming
-## the zenith separately lets the two differ. Written as `"sky_top": [r, g, b]` at the top
-## level of the document, beside `sky_name`, because it describes the sky, not the sun.
-## [member has_sky_top] tells "no sky_top" from any colour, including black; the default
-## colour is a clear daytime blue only so that code setting the flag alone gets a sky.
+## Optional; absent keeps the old sky, with the zenith in [member ambient_colour]. Naming it
+## lets a world whose ambient was chosen for the shade have a bluer sky. Written as
+## `"sky_top": [r, g, b]` beside `sky_name`; [member has_sky_top] tells absent from black.
 var sky_top: Color = Color(0.3, 0.56, 0.96)
 var has_sky_top: bool = false
 
 ## How many lights were compiled into the baked lighting.
 ##
-## Not for placing: those lights are already in the lightmap and placing them again lights
-## the world twice. It is here so a tool can say "this map has 148 lights in it and none of
-## them are dynamic" out loud, and so a renderer that ever wants a glow around them knows
-## they exist.
+## Not for placing: those lights are already in the lightmap, and placing them lights the
+## world twice.
 var baked_light_count: int = 0
 
 
@@ -119,9 +95,7 @@ static func from_dictionary(data: Dictionary) -> DotLightDocument:
 		doc.fog_max_density = clampf(float(fog.get("max_density", 1.0)), 0.0, 1.0)
 
 	doc.sky_name = str(data.get("sky_name", ""))
-	# Only a value that IS a colour counts. Anything else (a sky name written in the wrong
-	# key, a two-number array) is treated as absent rather than as the fallback colour, so a
-	# typo leaves today's sky instead of painting one nobody asked for.
+	# Only a real colour counts; anything else is absent, so a typo keeps today's sky.
 	var top: Variant = data.get("sky_top", null)
 	if (top is Array and (top as Array).size() >= 3) or top is Color:
 		doc.has_sky_top = true
