@@ -10,9 +10,9 @@ extends Node3D
 ## that had already announced itself. A suite reporting "0 failed" with checks missing is a
 ## failure this family has shipped more than once.
 
-const EXPECTED_SECTIONS := 11
+const EXPECTED_SECTIONS := 12
 ## Includes the count check itself, so it equals the final "passed" figure.
-const EXPECTED_CHECKS := 131
+const EXPECTED_CHECKS := 137
 
 var _passed := 0
 var _failed := 0
@@ -34,6 +34,7 @@ func _ready() -> void:
 	_contact_shade()
 	_bake()
 	_bake_stale()
+	_lamp_flicker()
 	print("")
 	_check(_sections == EXPECTED_SECTIONS,
 		"every section ran to its last line (%d of %d)" % [_sections, EXPECTED_SECTIONS])
@@ -541,6 +542,32 @@ func _contact_shade() -> void:
 		and shader.code.contains("blend_mix") and shader.code.contains("ALBEDO = vec3(0.0)") and shader.code.contains("unshaded"),
 		"the node is one unshaded mesh, black at the grey's alpha, casting no shadow")
 	node.free()
+	_done()
+
+
+func _lamp_flicker() -> void:
+	_section("lamp flicker: a failing lamp, as a pure function of time")
+	var steady := true
+	var lo := 1.0
+	var hi := 0.0
+	var same := true
+	var calm_lo := 1.0
+	var apart := false
+	for i in 2000:
+		var t := float(i) * 0.01
+		steady = steady and DotLampFlicker.scale(3, t, 0.0) == 1.0
+		var v := DotLampFlicker.scale(3, t, 0.8)
+		lo = minf(lo, v)
+		hi = maxf(hi, v)
+		same = same and v == DotLampFlicker.scale(3, t, 0.8)
+		calm_lo = minf(calm_lo, DotLampFlicker.scale(3, t, 0.8, false))
+		apart = apart or v != DotLampFlicker.scale(4, t, 0.8)
+	_check(steady, "amount 0 is a steady lamp")
+	_check(lo >= 0.0 and hi <= 1.0, "the scale stays in 0..1 (%.2f..%.2f)" % [lo, hi])
+	_check(lo < 0.3, "a flickering lamp drops nearly out (%.2f)" % lo)
+	_check(same, "same seed and time give the same value")
+	_check(apart, "two lamps do not flicker in step")
+	_check(calm_lo > 0.8, "with flashes off the dropouts go (%.2f)" % calm_lo)
 	_done()
 
 

@@ -14,6 +14,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first.
 | `core/dot_light_profile.gd` | `DotLightProfile`: what this machine draws (tonemap, exposure, grade, fill, glow, fog, sky, shadows, occlusion); `high()`, `low()`, `web()`, `for_platform()` (low on a phone, web in a browser, else high) for baked worlds, `painted()` for hand-built ones; `is_compatibility()` |
 | `runtime/dot_light_rig.gd` | `DotLightRig`: `apply`, `environment`, `apply_fog` (the fog half, onto an existing Environment, for weather; API 6), `fill`, the procedural sky, `METRES_PER_UNIT` and `metres()` |
 | `runtime/dot_contact_shade.gd` | `DotContactShade`: fake ambient occlusion for a world of boxes; `box`, `node`, `mesh`, `material`, `build` |
+| `runtime/dot_lamp_flicker.gd` | `DotLampFlicker`: `scale(seed, time, amount, allow_flashes)`, a failing lamp's brightness as a pure function of time (API 9) |
 | `runtime/dot_light_zone.gd` | `DotLightZone`: the inspector half for a hand-built world; builds the lighting on `_ready` and steps aside |
 | `bake/dot_light_bake.gd` | `DotLightBake`: baked light for a world built in code; `fingerprint`, `attach` (runtime: refuses headless, a missing file at DEBUG, a stale one with a WARN), `prepare` and `store` (offline) |
 | `bake/dot_lightmap_sheet.gd` | `DotLightmapSheet`: deterministic UV2 for meshes of flat quads (the shelf packer); `face`, `pack`, `commit`, `size` |

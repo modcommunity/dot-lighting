@@ -23,5 +23,7 @@ extends RefCounted
 # 7: DotLightBake.components, first_difference and scan; attach and prepare take the parts, so a stale
 #    WARN names the first component that differs. fingerprint ignores environment/props and rounds floats.
 # 8: DotLightProfile.for_platform(): low() on a phone, web() in a desktop browser, high() otherwise.
-const LEVEL := 8
+# 9: DotLampFlicker.scale(lamp_seed, time, amount, allow_flashes): a failing lamp's brightness as a pure
+#    function of time.
+const LEVEL := 9
 const OLDEST := 1
