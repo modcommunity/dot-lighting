@@ -54,7 +54,7 @@ The family's two steps ([family CLAUDE.md](../../CLAUDE.md#validating-anything))
 
 ## Not here yet
 
-- **The contact shade is in game-arena's built-in maps and mg-prop-hunt's maps only.** game-playground, game-hide-n-seek, mg-deathrun and mg-wipeout are not converted yet: nightly `look-fake-ao-2`.
+- **The contact shade is in game-arena's built-in maps and mg-prop-hunt's maps only.** game-playlot, game-hide-n-seek, mg-deathrun and mg-wipeout are not converted yet: nightly `look-fake-ao-2`.
 
 - **Point and spot lights in the document.** A world that wants *dynamic* lights wants a different field from `baked_light_count`, and no consumer has asked for one.
 - **Baked light is in game-zombie-zone only.** game-arena's built-in maps are the next consumer. Props and other separate meshes are not in a bake and cast no baked shadow.
