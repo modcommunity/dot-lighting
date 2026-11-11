@@ -1,6 +1,6 @@
 # dot-lighting
 
-A world's lighting as a document rather than as a scene: `DotLightDocument` is a dictionary in and a dictionary out (sun, ambient, fog, sky, baked-light count), `DotLightRig` turns one into a sun and an `Environment`, and `DotLightProfile` says how much of it this machine draws. An imported map carries its lighting in its manifest and the game applies it; game-g2gfast applies imported maps' lighting this way, and game-arena gives each built-in map a document of its own.
+A world's lighting as a document rather than as a scene: `DotLightDocument` is a dictionary in and a dictionary out (sun, ambient, fog, sky, baked-light count), `DotLightRig` turns one into a sun and an `Environment`, and `DotLightProfile` says how much of it this machine draws. An imported map carries its lighting in its manifest and the game applies it; game-airdrift applies imported maps' lighting this way, and game-fatal-contact gives each built-in map a document of its own.
 
 Read the family [CLAUDE.md](../../CLAUDE.md) first.
 
@@ -35,7 +35,7 @@ The family's two steps ([family CLAUDE.md](../../CLAUDE.md#validating-anything))
 - **The document is the point.** Lighting built into a `.tscn` can only ship with the build; a dictionary lets a converted map carry its own, with nothing in between knowing about either end.
 - **Absent is not zero.** `has_sun` and `has_ambient` tell "the map said nothing" from "the map said black". Those are different instructions and the suite asserts both.
 - **The document and the profile stay separate.** The document is the same on every machine; the profile differs between a desktop and a browser. Folding them together makes a map look different because somebody turned their settings down. Tone mapping is on at every tier.
-- **`METRES_PER_UNIT` (0.01905) is duplicated on purpose.** The same figure lives in game-g2gfast's `g2g_units.gd` and game-arena's `arena_bsp_map.gd`. The one-place rule is per project; this addon depends on dot-core alone, and importing a game's unit class to read a fog distance would be a dependency on the game. A caller with its own conversion passes metres in.
+- **`METRES_PER_UNIT` (0.01905) is duplicated on purpose.** The same figure lives in game-airdrift's `g2g_units.gd` and game-fatal-contact's `arena_bsp_map.gd`. The one-place rule is per project; this addon depends on dot-core alone, and importing a game's unit class to read a fog distance would be a dependency on the game. A caller with its own conversion passes metres in.
 - **The sun does not light a baked world's surfaces.** They are unshaded (the lightmap is their lighting), so the sun lights characters and props and the post-processing changes the world. "The sun does not seem to do anything" on a baked map is working as intended.
 - **`sky_name` is carried, never drawn.** It names a texture set inside the game the world was authored for, which is not ours to copy. The rig draws a procedural sky from the world's own numbers instead: fog colour as the horizon, ambient as the top, the sun at its own angle.
 - **`sky_top` is optional and absent draws the old sky exactly.** A converted world's ambient was measured from its sky, so the zenith in the ambient colour is right there; a world whose ambient was chosen for the shade names its zenith as a top-level `"sky_top": [r, g, b]`, and only what is drawn changes, never the ambient light. A malformed value is absent, not a default colour. The suite's `sky_top` section asserts both halves.
@@ -54,8 +54,8 @@ The family's two steps ([family CLAUDE.md](../../CLAUDE.md#validating-anything))
 
 ## Not here yet
 
-- **The contact shade is in game-arena's built-in maps and mg-prop-hunt's maps only.** game-playlot, game-hide-n-seek, mg-deathrun and mg-wipeout are not converted yet: nightly `look-fake-ao-2`.
+- **The contact shade is in game-fatal-contact's built-in maps and mg-prop-hunt's maps only.** game-playlot, game-hide-n-seek, mg-deathrun and mg-wipeout are not converted yet: nightly `look-fake-ao-2`.
 
 - **Point and spot lights in the document.** A world that wants *dynamic* lights wants a different field from `baked_light_count`, and no consumer has asked for one.
-- **Baked light is in game-zombie-zone only.** game-arena's built-in maps are the next consumer. Props and other separate meshes are not in a bake and cast no baked shadow.
+- **Baked light is in game-zombie-zone only.** game-fatal-contact's built-in maps are the next consumer. Props and other separate meshes are not in a bake and cast no baked shadow.
 - **Light probes and reflection.** The sheen on a wet or polished surface is a cubemap, a material property rather than a world one.

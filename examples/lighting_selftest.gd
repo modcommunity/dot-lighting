@@ -314,7 +314,7 @@ func _sky_top() -> void:
 	_check(dark != null and dark.sky_top_color.is_equal_approx(Color(0.80, 0.89, 1.0).darkened(0.3)),
 		"and with no ambient either, still the darker horizon")
 
-	# The shape game-arena's maps already carry: a top-level key beside sky_name.
+	# The shape game-fatal-contact's maps already carry: a top-level key beside sky_name.
 	var data := base.duplicate(true)
 	data["sky_top"] = [0.30, 0.56, 0.96]
 	var doc := DotLightDocument.from_dictionary(data)
